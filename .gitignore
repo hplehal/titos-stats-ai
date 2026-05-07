@@ -1,0 +1,41 @@
+# === Environment ===
+.env
+.env.local
+.env.*.local
+
+# === Node / Next.js (web/) ===
+node_modules/
+.next/
+out/
+build/
+*.tsbuildinfo
+next-env.d.ts
+.vercel
+.turbo
+
+# === Python (api/) ===
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.egg-info/
+
+# === ML / data artifacts ===
+weights/
+*.pt
+*.onnx
+
+# === Logs ===
+*.log
+npm-debug.log*
+yarn-debug.log*
+
+# === Editor / OS ===
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*.pem
