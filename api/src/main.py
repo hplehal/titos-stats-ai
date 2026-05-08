@@ -14,6 +14,13 @@ from .routers import players, seasons, teams
 SETTINGS = get_settings()
 logger = logging.getLogger("titos.api")
 
+if not SETTINGS.API_KEY:
+    logger.warning(
+        "API_KEY is not set — mutating endpoints (POST/PATCH/PUT/DELETE) will "
+        "return 503 until it is configured. Set API_KEY in the environment or "
+        ".env.local."
+    )
+
 _GUARDED_METHODS = frozenset({"POST", "PATCH", "PUT", "DELETE"})
 
 # Map known DB constraint names to user-facing 409 messages. Anything not in
