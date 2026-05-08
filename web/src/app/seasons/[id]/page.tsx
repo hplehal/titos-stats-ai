@@ -6,6 +6,7 @@ import { useParams } from "next/navigation";
 
 import { NewTeamDialog } from "@/components/teams/new-team-dialog";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { api } from "@/lib/api";
 
@@ -20,6 +21,17 @@ export default function SeasonPage() {
         params: { path: { season_id: seasonId } },
       });
       if (error) throw new Error("Failed to load season");
+      return data!;
+    },
+  });
+
+  const { data: matches } = useQuery({
+    queryKey: ["matches", { season_id: seasonId }],
+    queryFn: async () => {
+      const { data, error } = await api.GET("/matches", {
+        params: { query: { season_id: seasonId } },
+      });
+      if (error) throw new Error("Failed to load matches");
       return data!;
     },
   });
@@ -71,12 +83,41 @@ export default function SeasonPage() {
       </section>
 
       <section className="space-y-3">
-        <h2 className="text-lg font-medium">Matches</h2>
-        <Card>
-          <CardContent className="py-8 text-center text-muted-foreground">
-            No matches yet — match upload comes in Session 5.
-          </CardContent>
-        </Card>
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-medium">Matches</h2>
+          <Link href={`/matches/new?seasonId=${seasonId}`}>
+            <Button>New Match</Button>
+          </Link>
+        </div>
+        {!matches || matches.length === 0 ? (
+          <Card>
+            <CardContent className="py-8 text-center text-muted-foreground">
+              No matches yet.
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="grid gap-2">
+            {matches.map((m) => (
+              <Link key={m.id} href={`/matches/${m.id}`}>
+                <Card className="hover:bg-muted/50 transition-colors cursor-pointer">
+                  <CardContent className="py-4 flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium">{m.home_team.name}</span>
+                      <span className="text-muted-foreground">vs</span>
+                      <span className="font-medium">{m.away_team.name}</span>
+                      {m.tier !== null && m.tier !== undefined && (
+                        <Badge variant="secondary">Tier {m.tier}</Badge>
+                      )}
+                    </div>
+                    <span className="text-sm text-muted-foreground">
+                      {new Date(m.played_at).toLocaleDateString()}
+                    </span>
+                  </CardContent>
+                </Card>
+              </Link>
+            ))}
+          </div>
+        )}
       </section>
     </div>
   );

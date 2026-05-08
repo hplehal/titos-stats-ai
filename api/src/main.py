@@ -8,7 +8,7 @@ from fastapi.responses import JSONResponse
 from sqlalchemy.exc import IntegrityError
 
 from .config import get_settings
-from .routers import players, seasons, teams
+from .routers import matches, players, seasons, teams, uploads, videos
 
 
 SETTINGS = get_settings()
@@ -117,6 +117,9 @@ async def integrity_error_handler(
 app.include_router(seasons.router)
 app.include_router(teams.router)
 app.include_router(players.router)
+app.include_router(matches.router)
+app.include_router(uploads.router)
+app.include_router(videos.router)
 
 
 @app.get("/healthz")

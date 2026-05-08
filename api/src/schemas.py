@@ -70,3 +70,56 @@ class SeasonReadWithTeams(SeasonRead):
 
 class TeamReadWithPlayers(TeamRead):
     players: list[PlayerRead] = []
+
+
+# ─── Uploads ────────────────────────────────────────────────────────────────
+
+
+class PresignRequest(BaseModel):
+    filename: Annotated[str, Field(min_length=1, max_length=200)]
+    content_type: Annotated[str, Field(min_length=1, max_length=100)]
+
+
+class PresignResponse(BaseModel):
+    upload_url: str
+    key: str
+
+
+# ─── Matches + Videos ───────────────────────────────────────────────────────
+
+
+class VideoAssetRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: str
+    match_id: str
+    kind: str
+    storage_url: str  # R2 object key — playback uses GET /videos/{id}/url
+    duration_seconds: float | None
+    width: int | None
+    height: int | None
+
+
+class MatchCreate(BaseModel):
+    season_id: str
+    home_team_id: str
+    away_team_id: str
+    played_at: datetime
+    tier: _TierField
+    video_key: Annotated[str, Field(min_length=1, max_length=512)]
+    video_duration: float | None = None
+
+
+class MatchRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: str
+    season_id: str
+    home_team: TeamRead
+    away_team: TeamRead
+    played_at: datetime
+    tier: int | None
+    video_assets: list[VideoAssetRead] = []
+
+
+class VideoUrlResponse(BaseModel):
+    url: str
+    expires_in_seconds: int

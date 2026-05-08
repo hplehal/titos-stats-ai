@@ -149,6 +149,76 @@ export interface paths {
         patch: operations["update_player_players__player_id__patch"];
         trace?: never;
     };
+    "/matches": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Matches */
+        get: operations["list_matches_matches_get"];
+        put?: never;
+        /** Create Match */
+        post: operations["create_match_matches_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/matches/{match_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read Match */
+        get: operations["read_match_matches__match_id__get"];
+        put?: never;
+        post?: never;
+        /** Delete Match */
+        delete: operations["delete_match_matches__match_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/uploads/presign": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Presign */
+        post: operations["presign_uploads_presign_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/videos/{video_id}/url": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Video Url */
+        get: operations["get_video_url_videos__video_id__url_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/healthz": {
         parameters: {
             query?: never;
@@ -174,6 +244,47 @@ export interface components {
         HTTPValidationError: {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
+        };
+        /** MatchCreate */
+        MatchCreate: {
+            /** Season Id */
+            season_id: string;
+            /** Home Team Id */
+            home_team_id: string;
+            /** Away Team Id */
+            away_team_id: string;
+            /**
+             * Played At
+             * Format: date-time
+             */
+            played_at: string;
+            /** Tier */
+            tier?: number | null;
+            /** Video Key */
+            video_key: string;
+            /** Video Duration */
+            video_duration?: number | null;
+        };
+        /** MatchRead */
+        MatchRead: {
+            /** Id */
+            id: string;
+            /** Season Id */
+            season_id: string;
+            home_team: components["schemas"]["TeamRead"];
+            away_team: components["schemas"]["TeamRead"];
+            /**
+             * Played At
+             * Format: date-time
+             */
+            played_at: string;
+            /** Tier */
+            tier: number | null;
+            /**
+             * Video Assets
+             * @default []
+             */
+            video_assets: components["schemas"]["VideoAssetRead"][];
         };
         /** PlayerCreate */
         PlayerCreate: {
@@ -201,6 +312,20 @@ export interface components {
             name?: string | null;
             /** Jersey Number */
             jersey_number?: number | null;
+        };
+        /** PresignRequest */
+        PresignRequest: {
+            /** Filename */
+            filename: string;
+            /** Content Type */
+            content_type: string;
+        };
+        /** PresignResponse */
+        PresignResponse: {
+            /** Upload Url */
+            upload_url: string;
+            /** Key */
+            key: string;
         };
         /** SeasonCreate */
         SeasonCreate: {
@@ -296,6 +421,30 @@ export interface components {
             input?: unknown;
             /** Context */
             ctx?: Record<string, never>;
+        };
+        /** VideoAssetRead */
+        VideoAssetRead: {
+            /** Id */
+            id: string;
+            /** Match Id */
+            match_id: string;
+            /** Kind */
+            kind: string;
+            /** Storage Url */
+            storage_url: string;
+            /** Duration Seconds */
+            duration_seconds: number | null;
+            /** Width */
+            width: number | null;
+            /** Height */
+            height: number | null;
+        };
+        /** VideoUrlResponse */
+        VideoUrlResponse: {
+            /** Url */
+            url: string;
+            /** Expires In Seconds */
+            expires_in_seconds: number;
         };
     };
     responses: never;
@@ -799,6 +948,194 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PlayerRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_matches_matches_get: {
+        parameters: {
+            query?: {
+                season_id?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MatchRead"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_match_matches_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MatchCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MatchRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_match_matches__match_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                match_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MatchRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_match_matches__match_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                match_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    presign_uploads_presign_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PresignRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PresignResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_video_url_videos__video_id__url_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                video_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VideoUrlResponse"];
                 };
             };
             /** @description Validation Error */
