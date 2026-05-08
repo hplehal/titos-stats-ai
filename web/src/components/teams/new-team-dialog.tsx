@@ -65,8 +65,7 @@ export function NewTeamDialog({ seasonId }: { seasonId: string }) {
     },
   });
 
-  function onSubmit(e: React.FormEvent) {
-    e.preventDefault();
+  function submit() {
     const tierNum = tier === TIER_UNSET ? null : Number(tier);
     const parsed = schema.safeParse({ name, current_tier: tierNum });
     if (!parsed.success) {
@@ -84,7 +83,13 @@ export function NewTeamDialog({ seasonId }: { seasonId: string }) {
         <DialogHeader>
           <DialogTitle>New Team</DialogTitle>
         </DialogHeader>
-        <form onSubmit={onSubmit} className="space-y-4">
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            submit();
+          }}
+          className="space-y-4"
+        >
           <div className="space-y-2">
             <Label htmlFor="team-name">Name</Label>
             <Input
@@ -115,7 +120,7 @@ export function NewTeamDialog({ seasonId }: { seasonId: string }) {
             <p className="text-sm text-destructive">{formError}</p>
           )}
           <DialogFooter>
-            <Button type="submit" disabled={mutation.isPending}>
+            <Button onClick={submit} disabled={mutation.isPending}>
               {mutation.isPending ? "Creating…" : "Create"}
             </Button>
           </DialogFooter>

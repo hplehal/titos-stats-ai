@@ -47,8 +47,7 @@ export function NewSeasonDialog() {
     },
   });
 
-  function onSubmit(e: React.FormEvent) {
-    e.preventDefault();
+  function submit() {
     const parsed = schema.safeParse({ name });
     if (!parsed.success) {
       setFormError(parsed.error.issues[0]?.message ?? "Invalid input");
@@ -65,7 +64,13 @@ export function NewSeasonDialog() {
         <DialogHeader>
           <DialogTitle>New Season</DialogTitle>
         </DialogHeader>
-        <form onSubmit={onSubmit} className="space-y-4">
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            submit();
+          }}
+          className="space-y-4"
+        >
           <div className="space-y-2">
             <Label htmlFor="season-name">Name</Label>
             <Input
@@ -80,7 +85,7 @@ export function NewSeasonDialog() {
             )}
           </div>
           <DialogFooter>
-            <Button type="submit" disabled={mutation.isPending}>
+            <Button onClick={submit} disabled={mutation.isPending}>
               {mutation.isPending ? "Creating…" : "Create"}
             </Button>
           </DialogFooter>

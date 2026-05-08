@@ -113,8 +113,7 @@ export function PlayerFormDialog(props: Props) {
     },
   });
 
-  function onSubmit(e: React.FormEvent) {
-    e.preventDefault();
+  function submit() {
     const jerseyNum = jersey === "" ? Number.NaN : Number(jersey);
     const parsed = schema.safeParse({ name, jersey_number: jerseyNum });
     if (!parsed.success) {
@@ -137,7 +136,13 @@ export function PlayerFormDialog(props: Props) {
         <DialogHeader>
           <DialogTitle>{isEdit ? "Edit Player" : "Add Player"}</DialogTitle>
         </DialogHeader>
-        <form onSubmit={onSubmit} className="space-y-4">
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            submit();
+          }}
+          className="space-y-4"
+        >
           <div className="space-y-2">
             <Label htmlFor="player-name">Name</Label>
             <Input
@@ -162,7 +167,7 @@ export function PlayerFormDialog(props: Props) {
             <p className="text-sm text-destructive">{formError}</p>
           )}
           <DialogFooter>
-            <Button type="submit" disabled={pending}>
+            <Button onClick={submit} disabled={pending}>
               {pending ? "Saving…" : isEdit ? "Save" : "Add"}
             </Button>
           </DialogFooter>
