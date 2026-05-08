@@ -219,6 +219,42 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/matches/{match_id}/rallies": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Rallies */
+        get: operations["list_rallies_matches__match_id__rallies_get"];
+        put?: never;
+        /** Create Rally */
+        post: operations["create_rally_matches__match_id__rallies_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/rallies/{rally_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete Rally */
+        delete: operations["delete_rally_rallies__rally_id__delete"];
+        options?: never;
+        head?: never;
+        /** Update Rally */
+        patch: operations["update_rally_rallies__rally_id__patch"];
+        trace?: never;
+    };
     "/healthz": {
         parameters: {
             query?: never;
@@ -286,6 +322,39 @@ export interface components {
              */
             video_assets: components["schemas"]["VideoAssetRead"][];
         };
+        /**
+         * PlayAction
+         * @enum {string}
+         */
+        PlayAction: "SERVE" | "PASS" | "SET" | "ATTACK" | "BLOCK" | "DIG" | "FREEBALL";
+        /** PlayRead */
+        PlayRead: {
+            /** Id */
+            id: string;
+            /** Rally Id */
+            rally_id: string;
+            /** Player Id */
+            player_id: string | null;
+            action: components["schemas"]["PlayAction"];
+            result: components["schemas"]["PlayResult"];
+            /** Sequence */
+            sequence: number;
+            /** Team */
+            team: string | null;
+            /** Position */
+            position: string | null;
+            /** Ai Suggested */
+            ai_suggested: boolean;
+            /** Ai Confidence */
+            ai_confidence: number | null;
+            /** Notes */
+            notes: string | null;
+        };
+        /**
+         * PlayResult
+         * @enum {string}
+         */
+        PlayResult: "SUCCESS" | "ERROR" | "CONTINUED";
         /** PlayerCreate */
         PlayerCreate: {
             /** Name */
@@ -326,6 +395,44 @@ export interface components {
             upload_url: string;
             /** Key */
             key: string;
+        };
+        /** RallyCreate */
+        RallyCreate: {
+            /** Start Time */
+            start_time: number;
+        };
+        /** RallyRead */
+        RallyRead: {
+            /** Id */
+            id: string;
+            /** Match Id */
+            match_id: string;
+            /** Start Time */
+            start_time: number;
+            /** End Time */
+            end_time: number | null;
+            /** Point Won By */
+            point_won_by: string | null;
+            /** Ai Proposed */
+            ai_proposed: boolean;
+            /** Ai Confirmed */
+            ai_confirmed: boolean;
+            /**
+             * Plays
+             * @default []
+             */
+            plays: components["schemas"]["PlayRead"][];
+        };
+        /** RallyUpdate */
+        RallyUpdate: {
+            /** Start Time */
+            start_time?: number | null;
+            /** End Time */
+            end_time?: number | null;
+            /** Point Won By */
+            point_won_by?: ("home" | "away") | null;
+            /** Ai Confirmed */
+            ai_confirmed?: boolean | null;
         };
         /** SeasonCreate */
         SeasonCreate: {
@@ -1136,6 +1243,136 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["VideoUrlResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_rallies_matches__match_id__rallies_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                match_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RallyRead"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_rally_matches__match_id__rallies_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                match_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RallyCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RallyRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_rally_rallies__rally_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                rally_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_rally_rallies__rally_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                rally_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RallyUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RallyRead"];
                 };
             };
             /** @description Validation Error */

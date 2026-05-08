@@ -8,7 +8,15 @@ from fastapi.responses import JSONResponse
 from sqlalchemy.exc import IntegrityError
 
 from .config import get_settings
-from .routers import matches, players, seasons, teams, uploads, videos
+from .routers import (
+    matches,
+    players,
+    rallies,
+    seasons,
+    teams,
+    uploads,
+    videos,
+)
 
 
 SETTINGS = get_settings()
@@ -120,6 +128,7 @@ app.include_router(players.router)
 app.include_router(matches.router)
 app.include_router(uploads.router)
 app.include_router(videos.router)
+app.include_router(rallies.router)
 
 
 @app.get("/healthz")

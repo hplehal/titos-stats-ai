@@ -1,7 +1,9 @@
 from datetime import datetime
-from typing import Annotated
+from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
+
+from .models import PlayAction, PlayResult
 
 
 _NameField = Annotated[str, Field(min_length=1, max_length=120)]
@@ -123,3 +125,44 @@ class MatchRead(BaseModel):
 class VideoUrlResponse(BaseModel):
     url: str
     expires_in_seconds: int
+
+
+# ─── Rallies + Plays ────────────────────────────────────────────────────────
+
+
+class PlayRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: str
+    rally_id: str
+    player_id: str | None
+    action: PlayAction
+    result: PlayResult
+    sequence: int
+    team: str | None
+    position: str | None
+    ai_suggested: bool
+    ai_confidence: float | None
+    notes: str | None
+
+
+class RallyCreate(BaseModel):
+    start_time: Annotated[float, Field(ge=0)]
+
+
+class RallyUpdate(BaseModel):
+    start_time: Annotated[float | None, Field(default=None, ge=0)]
+    end_time: Annotated[float | None, Field(default=None, ge=0)]
+    point_won_by: Literal["home", "away"] | None = None
+    ai_confirmed: bool | None = None
+
+
+class RallyRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: str
+    match_id: str
+    start_time: float
+    end_time: float | None
+    point_won_by: str | None
+    ai_proposed: bool
+    ai_confirmed: bool
+    plays: list[PlayRead] = []
