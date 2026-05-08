@@ -258,7 +258,11 @@ function TeamHeader({
           }
         >
           <SelectTrigger className="w-32">
-            <SelectValue />
+            <SelectValue>
+              {(v: string | null) =>
+                !v || v === TIER_UNSET ? "Unset" : `Tier ${v}`
+              }
+            </SelectValue>
           </SelectTrigger>
           <SelectContent>
             <SelectItem value={TIER_UNSET}>Unset</SelectItem>

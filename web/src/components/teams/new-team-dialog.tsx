@@ -104,7 +104,11 @@ export function NewTeamDialog({ seasonId }: { seasonId: string }) {
             <Label htmlFor="team-tier">Current Tier</Label>
             <Select value={tier} onValueChange={(v) => setTier(v ?? TIER_UNSET)}>
               <SelectTrigger id="team-tier">
-                <SelectValue />
+                <SelectValue>
+                  {(v: string | null) =>
+                    !v || v === TIER_UNSET ? "Unset" : `Tier ${v}`
+                  }
+                </SelectValue>
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value={TIER_UNSET}>Unset</SelectItem>

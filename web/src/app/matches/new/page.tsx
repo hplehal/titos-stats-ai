@@ -174,7 +174,13 @@ function NewMatchPageInner() {
             <Label htmlFor="season">Season</Label>
             <Select value={seasonId} onValueChange={(v) => setSeasonId(v ?? "")}>
               <SelectTrigger id="season">
-                <SelectValue placeholder="Pick a season" />
+                <SelectValue placeholder="Pick a season">
+                  {(v: string | null) =>
+                    v
+                      ? (seasons ?? []).find((s) => s.id === v)?.name ?? v
+                      : null
+                  }
+                </SelectValue>
               </SelectTrigger>
               <SelectContent>
                 {(seasons ?? []).map((s) => (
@@ -195,7 +201,13 @@ function NewMatchPageInner() {
                 disabled={!seasonId}
               >
                 <SelectTrigger id="home">
-                  <SelectValue placeholder="Pick home team" />
+                  <SelectValue placeholder="Pick home team">
+                    {(v: string | null) =>
+                      v
+                        ? (teams ?? []).find((t) => t.id === v)?.name ?? v
+                        : null
+                    }
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   {(teams ?? []).map((t) => (
@@ -214,7 +226,13 @@ function NewMatchPageInner() {
                 disabled={!homeTeamId}
               >
                 <SelectTrigger id="away">
-                  <SelectValue placeholder="Pick away team" />
+                  <SelectValue placeholder="Pick away team">
+                    {(v: string | null) =>
+                      v
+                        ? (teams ?? []).find((t) => t.id === v)?.name ?? v
+                        : null
+                    }
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   {awayTeams.map((t) => (
@@ -244,7 +262,11 @@ function NewMatchPageInner() {
                 onValueChange={(v) => setTier(v ?? TIER_UNSET)}
               >
                 <SelectTrigger id="tier">
-                  <SelectValue />
+                  <SelectValue>
+                    {(v: string | null) =>
+                      !v || v === TIER_UNSET ? "Unset" : `Tier ${v}`
+                    }
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value={TIER_UNSET}>Unset</SelectItem>
