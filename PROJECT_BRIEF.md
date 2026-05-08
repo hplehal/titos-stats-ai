@@ -174,6 +174,7 @@ class Team(Base):
     id: Mapped[str]
     season_id: Mapped[str]
     name: Mapped[str]
+    current_tier: Mapped[int | None]   # 1-8, nullable; reflects team's current placement
 
 class Player(Base):
     id: Mapped[str]
@@ -188,12 +189,15 @@ class Match(Base):
     home_team_id: Mapped[str]
     away_team_id: Mapped[str]
     played_at: Mapped[datetime]
+    tier: Mapped[int | None]           # 1-8: tier 1 = top skill, tier 8 = bottom. Nullable for non-league matches.
+    __table_args__ = (CheckConstraint("tier IS NULL OR tier BETWEEN 1 AND 8"),)
+    # One match = one set = one video. Multi-set / best-of-N is post-Phase-1.
 
 class VideoAsset(Base):
     id: Mapped[str]
     match_id: Mapped[str]
     kind: Mapped[str]                  # "raw" | "preview" | "clip"
-    storage_url: Mapped[str]           # R2 URL
+    storage_url: Mapped[str]           # R2 key; presigned at read time
     duration_seconds: Mapped[float | None]
     width: Mapped[int | None]
     height: Mapped[int | None]
@@ -201,9 +205,8 @@ class VideoAsset(Base):
 
 class Rally(Base):
     id: Mapped[str]
-    match_id: Mapped[str]
-    set_number: Mapped[int]
-    start_time: Mapped[float]          # seconds into video
+    match_id: Mapped[str]              # one match = one set, no set_number needed
+    start_time: Mapped[float]          # seconds into the match's video
     end_time: Mapped[float]
     point_won_by: Mapped[str | None]   # "home" | "away"
     ai_proposed: Mapped[bool] = False
@@ -222,6 +225,23 @@ class Play(Base):
     ai_confidence: Mapped[float | None]
     notes: Mapped[str | None]
 ```
+
+**Cascade rules (explicit ON DELETE):**
+- Season → Teams: CASCADE
+- Team → Players: CASCADE
+- Season → Matches: CASCADE
+- Match → Rallies: CASCADE
+- Match → VideoAssets: CASCADE
+- Rally → Plays: CASCADE
+- Player → Plays: SET NULL on `Play.player_id` (preserve play data even if a player is removed from the roster)
+
+**Tito's tier structure (context for tier field):**
+- 8 tiers, 3 teams per tier (24 teams per league night)
+- Tiers 1–4 play 8–10pm; tiers 5–8 play 10–12am
+- Tier 1 = top skill, Tier 8 = bottom
+- Within a tier, 3 teams play round-robin twice per night (6 matches per tier per night)
+- Promotion/relegation between tiers happens weekly based on results — **post-Phase-1 feature**, not implemented in Phase 1
+- Phase 1 just needs to **record** each match's tier; the standings/promotion logic is Phase 5 dashboard work
 
 Stats derived in `api/src/stats.py`, never stored.
 
