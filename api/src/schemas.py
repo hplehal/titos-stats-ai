@@ -115,8 +115,8 @@ class MatchRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: str
     season_id: str
-    home_team: TeamRead
-    away_team: TeamRead
+    home_team: TeamReadWithPlayers
+    away_team: TeamReadWithPlayers
     played_at: datetime
     tier: int | None
     video_assets: list[VideoAssetRead] = []
@@ -166,3 +166,66 @@ class RallyRead(BaseModel):
     ai_proposed: bool
     ai_confirmed: bool
     plays: list[PlayRead] = []
+
+
+# ─── Plays (writes) ─────────────────────────────────────────────────────────
+
+
+class PlayCreate(BaseModel):
+    player_id: str | None = None
+    action: PlayAction
+    result: PlayResult
+    sequence: Annotated[int, Field(ge=1)]
+    team: Literal["home", "away"] | None = None
+    position: str | None = None
+    notes: str | None = None
+
+
+class PlayUpdate(BaseModel):
+    player_id: str | None = None
+    action: PlayAction | None = None
+    result: PlayResult | None = None
+    sequence: Annotated[int | None, Field(default=None, ge=1)]
+    team: Literal["home", "away"] | None = None
+    position: str | None = None
+    notes: str | None = None
+
+
+# ─── Stats ──────────────────────────────────────────────────────────────────
+
+
+class PlayerStats(BaseModel):
+    player_id: str
+    name: str
+    jersey_number: int
+    team: Literal["home", "away"]
+    kills: int = 0
+    attack_errors: int = 0
+    aces: int = 0
+    service_errors: int = 0
+    blocks: int = 0
+    digs: int = 0
+    reception_errors: int = 0
+    assists: int = 0
+    points: int = 0  # kills + aces + blocks
+
+
+class TeamStats(BaseModel):
+    side: Literal["home", "away"]
+    team_id: str
+    name: str
+    score: int = 0  # rallies won
+    kills: int = 0
+    attack_errors: int = 0
+    aces: int = 0
+    service_errors: int = 0
+    blocks: int = 0
+    digs: int = 0
+    reception_errors: int = 0
+    assists: int = 0
+
+
+class MatchStatsResponse(BaseModel):
+    home: TeamStats
+    away: TeamStats
+    players: list[PlayerStats]

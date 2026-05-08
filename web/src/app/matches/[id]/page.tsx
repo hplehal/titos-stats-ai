@@ -5,8 +5,10 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
+import { ActiveRallyDrawer } from "@/components/tracker/active-rally-drawer";
 import { EndRallyDialog } from "@/components/tracker/end-rally-dialog";
 import { HotkeyBar } from "@/components/tracker/hotkey-bar";
+import { LiveStats } from "@/components/tracker/live-stats";
 import { type Rally, RallyPanel } from "@/components/tracker/rally-panel";
 import {
   VideoPlayer,
@@ -249,18 +251,33 @@ export default function TrackerPage() {
 
       <div className="grid grid-cols-[3fr_2fr] gap-6 items-start">
         <VideoPlayer ref={videoRef} src={videoUrl ?? null} />
-        <RallyPanel
-          rallies={rallies}
-          activeRally={activeRally}
-          homeName={match.home_team.name}
-          awayName={match.away_team.name}
-          onStart={handleStartRally}
-          onEnd={handleOpenEndDialog}
-          onDelete={(id) => deleteRallyMut.mutate(id)}
-        />
+
+        <div className="space-y-3">
+          <LiveStats matchId={matchId} />
+          {activeRally && (
+            <ActiveRallyDrawer
+              rally={activeRally}
+              homeTeam={match.home_team}
+              awayTeam={match.away_team}
+              matchId={matchId}
+              ralliesKey={ralliesKey}
+              endDialogOpen={endDialogOpen}
+              onEndRally={handleOpenEndDialog}
+            />
+          )}
+          <RallyPanel
+            rallies={rallies}
+            activeRally={activeRally}
+            homeName={match.home_team.name}
+            awayName={match.away_team.name}
+            onStart={handleStartRally}
+            onEnd={handleOpenEndDialog}
+            onDelete={(id) => deleteRallyMut.mutate(id)}
+          />
+        </div>
       </div>
 
-      <HotkeyBar />
+      <HotkeyBar rallyActive={activeRally !== null} />
 
       <EndRallyDialog
         open={endDialogOpen}

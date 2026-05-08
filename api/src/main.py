@@ -11,6 +11,7 @@ from .config import get_settings
 from .routers import (
     matches,
     players,
+    plays,
     rallies,
     seasons,
     teams,
@@ -129,6 +130,7 @@ app.include_router(matches.router)
 app.include_router(uploads.router)
 app.include_router(videos.router)
 app.include_router(rallies.router)
+app.include_router(plays.router)
 
 
 @app.get("/healthz")

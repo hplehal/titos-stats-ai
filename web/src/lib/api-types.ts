@@ -185,6 +185,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/matches/{match_id}/stats": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Match Stats */
+        get: operations["match_stats_matches__match_id__stats_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/uploads/presign": {
         parameters: {
             query?: never;
@@ -255,6 +272,42 @@ export interface paths {
         patch: operations["update_rally_rallies__rally_id__patch"];
         trace?: never;
     };
+    "/rallies/{rally_id}/plays": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Plays */
+        get: operations["list_plays_rallies__rally_id__plays_get"];
+        put?: never;
+        /** Create Play */
+        post: operations["create_play_rallies__rally_id__plays_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/plays/{play_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete Play */
+        delete: operations["delete_play_plays__play_id__delete"];
+        options?: never;
+        head?: never;
+        /** Update Play */
+        patch: operations["update_play_plays__play_id__patch"];
+        trace?: never;
+    };
     "/healthz": {
         parameters: {
             query?: never;
@@ -307,8 +360,8 @@ export interface components {
             id: string;
             /** Season Id */
             season_id: string;
-            home_team: components["schemas"]["TeamRead"];
-            away_team: components["schemas"]["TeamRead"];
+            home_team: components["schemas"]["TeamReadWithPlayers"];
+            away_team: components["schemas"]["TeamReadWithPlayers"];
             /**
              * Played At
              * Format: date-time
@@ -322,11 +375,33 @@ export interface components {
              */
             video_assets: components["schemas"]["VideoAssetRead"][];
         };
+        /** MatchStatsResponse */
+        MatchStatsResponse: {
+            home: components["schemas"]["TeamStats"];
+            away: components["schemas"]["TeamStats"];
+            /** Players */
+            players: components["schemas"]["PlayerStats"][];
+        };
         /**
          * PlayAction
          * @enum {string}
          */
         PlayAction: "SERVE" | "PASS" | "SET" | "ATTACK" | "BLOCK" | "DIG" | "FREEBALL";
+        /** PlayCreate */
+        PlayCreate: {
+            /** Player Id */
+            player_id?: string | null;
+            action: components["schemas"]["PlayAction"];
+            result: components["schemas"]["PlayResult"];
+            /** Sequence */
+            sequence: number;
+            /** Team */
+            team?: ("home" | "away") | null;
+            /** Position */
+            position?: string | null;
+            /** Notes */
+            notes?: string | null;
+        };
         /** PlayRead */
         PlayRead: {
             /** Id */
@@ -355,6 +430,21 @@ export interface components {
          * @enum {string}
          */
         PlayResult: "SUCCESS" | "ERROR" | "CONTINUED";
+        /** PlayUpdate */
+        PlayUpdate: {
+            /** Player Id */
+            player_id?: string | null;
+            action?: components["schemas"]["PlayAction"] | null;
+            result?: components["schemas"]["PlayResult"] | null;
+            /** Sequence */
+            sequence?: number | null;
+            /** Team */
+            team?: ("home" | "away") | null;
+            /** Position */
+            position?: string | null;
+            /** Notes */
+            notes?: string | null;
+        };
         /** PlayerCreate */
         PlayerCreate: {
             /** Name */
@@ -374,6 +464,65 @@ export interface components {
             name: string;
             /** Jersey Number */
             jersey_number: number;
+        };
+        /** PlayerStats */
+        PlayerStats: {
+            /** Player Id */
+            player_id: string;
+            /** Name */
+            name: string;
+            /** Jersey Number */
+            jersey_number: number;
+            /**
+             * Team
+             * @enum {string}
+             */
+            team: "home" | "away";
+            /**
+             * Kills
+             * @default 0
+             */
+            kills: number;
+            /**
+             * Attack Errors
+             * @default 0
+             */
+            attack_errors: number;
+            /**
+             * Aces
+             * @default 0
+             */
+            aces: number;
+            /**
+             * Service Errors
+             * @default 0
+             */
+            service_errors: number;
+            /**
+             * Blocks
+             * @default 0
+             */
+            blocks: number;
+            /**
+             * Digs
+             * @default 0
+             */
+            digs: number;
+            /**
+             * Reception Errors
+             * @default 0
+             */
+            reception_errors: number;
+            /**
+             * Assists
+             * @default 0
+             */
+            assists: number;
+            /**
+             * Points
+             * @default 0
+             */
+            points: number;
         };
         /** PlayerUpdate */
         PlayerUpdate: {
@@ -508,6 +657,63 @@ export interface components {
              * @default []
              */
             players: components["schemas"]["PlayerRead"][];
+        };
+        /** TeamStats */
+        TeamStats: {
+            /**
+             * Side
+             * @enum {string}
+             */
+            side: "home" | "away";
+            /** Team Id */
+            team_id: string;
+            /** Name */
+            name: string;
+            /**
+             * Score
+             * @default 0
+             */
+            score: number;
+            /**
+             * Kills
+             * @default 0
+             */
+            kills: number;
+            /**
+             * Attack Errors
+             * @default 0
+             */
+            attack_errors: number;
+            /**
+             * Aces
+             * @default 0
+             */
+            aces: number;
+            /**
+             * Service Errors
+             * @default 0
+             */
+            service_errors: number;
+            /**
+             * Blocks
+             * @default 0
+             */
+            blocks: number;
+            /**
+             * Digs
+             * @default 0
+             */
+            digs: number;
+            /**
+             * Reception Errors
+             * @default 0
+             */
+            reception_errors: number;
+            /**
+             * Assists
+             * @default 0
+             */
+            assists: number;
         };
         /** TeamUpdate */
         TeamUpdate: {
@@ -1192,6 +1398,37 @@ export interface operations {
             };
         };
     };
+    match_stats_matches__match_id__stats_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                match_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MatchStatsResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     presign_uploads_presign_post: {
         parameters: {
             query?: never;
@@ -1373,6 +1610,136 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RallyRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_plays_rallies__rally_id__plays_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                rally_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlayRead"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_play_rallies__rally_id__plays_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                rally_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PlayCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlayRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_play_plays__play_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                play_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_play_plays__play_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                play_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PlayUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlayRead"];
                 };
             };
             /** @description Validation Error */

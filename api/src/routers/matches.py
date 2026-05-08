@@ -5,6 +5,7 @@ from sqlalchemy.orm import selectinload
 
 from .. import models, schemas
 from ..db import get_db
+from ..stats import derive_match_stats
 
 
 router = APIRouter(prefix="/matches", tags=["matches"])
@@ -14,8 +15,12 @@ def _full_match_query(match_id: str | None = None):
     stmt = (
         select(models.Match)
         .options(
-            selectinload(models.Match.home_team),
-            selectinload(models.Match.away_team),
+            selectinload(models.Match.home_team).selectinload(
+                models.Team.players
+            ),
+            selectinload(models.Match.away_team).selectinload(
+                models.Team.players
+            ),
             selectinload(models.Match.video_assets),
         )
     )
@@ -111,3 +116,14 @@ async def delete_match(
         raise HTTPException(404, "Match not found.")
     await db.delete(match)
     await db.commit()
+
+
+@router.get("/{match_id}/stats", response_model=schemas.MatchStatsResponse)
+async def match_stats(
+    match_id: str,
+    db: AsyncSession = Depends(get_db),
+) -> schemas.MatchStatsResponse:
+    stats = await derive_match_stats(match_id, db)
+    if stats is None:
+        raise HTTPException(404, "Match not found.")
+    return stats
