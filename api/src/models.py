@@ -238,6 +238,10 @@ class Play(Base):
         SAEnum(PlayResult, name="play_result"), nullable=False
     )
     sequence: Mapped[int] = mapped_column(Integer, nullable=False)
+    # Video time at the moment of tagging — distinct from rally.start_time so
+    # individual contacts can be located in the source clip. Backfilled from
+    # rally.start_time for plays that pre-date this column.
+    play_time_seconds: Mapped[float] = mapped_column(Float, nullable=False)
     team: Mapped[str | None] = mapped_column(String(8), nullable=True)
     position: Mapped[str | None] = mapped_column(String(32), nullable=True)
     ai_suggested: Mapped[bool] = mapped_column(

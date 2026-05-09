@@ -123,6 +123,8 @@ type Props = {
   onEndRally: () => void;
   /** Fired after a rally-ending play commits — page schedules the 1s grace. */
   onAutoCloseRequest?: () => void;
+  /** Reads video.currentTime at commit time. */
+  getVideoTime: () => number;
 };
 
 export function ActiveRallyDrawer({
@@ -134,6 +136,7 @@ export function ActiveRallyDrawer({
   endDialogOpen,
   onEndRally,
   onAutoCloseRequest,
+  getVideoTime,
 }: Props) {
   const queryClient = useQueryClient();
 
@@ -207,6 +210,7 @@ export function ActiveRallyDrawer({
       team: "home" | "away" | null;
       player_id: string | null;
       sequence: number;
+      play_time_seconds: number;
     }) => {
       const { data, error, response } = await api.POST(
         "/rallies/{rally_id}/plays",
@@ -218,6 +222,7 @@ export function ActiveRallyDrawer({
             team: vars.team,
             player_id: vars.player_id,
             sequence: vars.sequence,
+            play_time_seconds: vars.play_time_seconds,
           },
         },
       );
@@ -237,6 +242,7 @@ export function ActiveRallyDrawer({
         action: vars.action,
         result: vars.result,
         sequence: vars.sequence,
+        play_time_seconds: vars.play_time_seconds,
         team: vars.team,
         position: null,
         ai_suggested: false,
@@ -308,6 +314,7 @@ export function ActiveRallyDrawer({
       team: side,
       player_id: unattributedNext ? null : playerId,
       sequence,
+      play_time_seconds: getVideoTime(),
     });
     setPendingAction(null);
     setUnattributedNext(false);

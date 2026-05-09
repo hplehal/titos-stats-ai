@@ -145,6 +145,9 @@ _PLAYS_COLUMNS = [
     "jersey_number",
     "action",
     "result",
+    # Per-play video timestamp captured at tag time. Appended to keep
+    # column-index-based readers of the original 10-col layout working.
+    "play_time_seconds",
 ]
 _STATS_COLUMNS = [
     "scope",
@@ -209,6 +212,7 @@ async def export_match(
                     play.player.jersey_number if play.player else "",
                     play.action.value,
                     play.result.value,
+                    play.play_time_seconds,
                 ]
             )
 

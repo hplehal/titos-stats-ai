@@ -412,6 +412,8 @@ export interface components {
             result: components["schemas"]["PlayResult"];
             /** Sequence */
             sequence: number;
+            /** Play Time Seconds */
+            play_time_seconds: number;
             /** Team */
             team?: ("home" | "away") | null;
             /** Position */
@@ -431,6 +433,8 @@ export interface components {
             result: components["schemas"]["PlayResult"];
             /** Sequence */
             sequence: number;
+            /** Play Time Seconds */
+            play_time_seconds: number;
             /** Team */
             team: string | null;
             /** Position */
@@ -455,6 +459,8 @@ export interface components {
             result?: components["schemas"]["PlayResult"] | null;
             /** Sequence */
             sequence?: number | null;
+            /** Play Time Seconds */
+            play_time_seconds?: number | null;
             /** Team */
             team?: ("home" | "away") | null;
             /** Position */

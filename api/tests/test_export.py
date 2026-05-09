@@ -117,6 +117,7 @@ async def test_export_plays_columns_and_ordering(client: AsyncClient) -> None:
             "action": "ATTACK",
             "result": "SUCCESS",
             "sequence": 1,
+            "play_time_seconds": 12.5,
             "team": "home",
         },
     )
@@ -127,6 +128,7 @@ async def test_export_plays_columns_and_ordering(client: AsyncClient) -> None:
             "action": "SERVE",
             "result": "ERROR",
             "sequence": 1,
+            "play_time_seconds": 53.25,
             "team": "away",
         },
     )
@@ -144,6 +146,7 @@ async def test_export_plays_columns_and_ordering(client: AsyncClient) -> None:
         "jersey_number",
         "action",
         "result",
+        "play_time_seconds",
     ] == list(plays[0].keys())
     assert len(plays) == 2
 
@@ -158,6 +161,10 @@ async def test_export_plays_columns_and_ordering(client: AsyncClient) -> None:
     assert early["jersey_number"] == "7"
     assert late["player_name"] == ""
     assert late["jersey_number"] == ""
+
+    # New per-play timestamp column round-trips the float precisely.
+    assert float(early["play_time_seconds"]) == 12.5
+    assert float(late["play_time_seconds"]) == 53.25
 
 
 async def test_export_stats_columns_and_rows(client: AsyncClient) -> None:
@@ -175,6 +182,7 @@ async def test_export_stats_columns_and_rows(client: AsyncClient) -> None:
             "action": "ATTACK",
             "result": "SUCCESS",
             "sequence": 1,
+            "play_time_seconds": 0,
             "team": "home",
         },
     )

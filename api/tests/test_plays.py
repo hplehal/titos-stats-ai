@@ -50,6 +50,7 @@ async def test_create_and_list_plays(client: AsyncClient) -> None:
             "action": "ATTACK",
             "result": "SUCCESS",
             "sequence": 1,
+            "play_time_seconds": 0,
             "team": "home",
         },
     )
@@ -78,6 +79,7 @@ async def test_play_sequence_repack_on_delete(client: AsyncClient) -> None:
                     "action": "ATTACK",
                     "result": "CONTINUED",
                     "sequence": seq,
+                    "play_time_seconds": 0,
                     "team": "home",
                 },
             )
@@ -103,6 +105,7 @@ async def test_patch_play(client: AsyncClient) -> None:
                 "action": "PASS",
                 "result": "ERROR",
                 "sequence": 1,
+                "play_time_seconds": 0,
                 "team": "home",
             },
         )
@@ -125,6 +128,7 @@ async def test_create_play_unknown_rally_404(client: AsyncClient) -> None:
             "action": "SERVE",
             "result": "SUCCESS",
             "sequence": 1,
+            "play_time_seconds": 0,
             "team": "home",
         },
     )

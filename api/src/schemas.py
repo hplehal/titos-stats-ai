@@ -138,6 +138,7 @@ class PlayRead(BaseModel):
     action: PlayAction
     result: PlayResult
     sequence: int
+    play_time_seconds: float
     team: str | None
     position: str | None
     ai_suggested: bool
@@ -176,6 +177,7 @@ class PlayCreate(BaseModel):
     action: PlayAction
     result: PlayResult
     sequence: Annotated[int, Field(ge=1)]
+    play_time_seconds: Annotated[float, Field(ge=0)]
     team: Literal["home", "away"] | None = None
     position: str | None = None
     notes: str | None = None
@@ -186,6 +188,7 @@ class PlayUpdate(BaseModel):
     action: PlayAction | None = None
     result: PlayResult | None = None
     sequence: Annotated[int | None, Field(default=None, ge=1)]
+    play_time_seconds: Annotated[float | None, Field(default=None, ge=0)]
     team: Literal["home", "away"] | None = None
     position: str | None = None
     notes: str | None = None

@@ -45,6 +45,7 @@ async def create_play(
         action=payload.action,
         result=payload.result,
         sequence=payload.sequence,
+        play_time_seconds=payload.play_time_seconds,
         team=payload.team,
         position=payload.position,
         notes=payload.notes,

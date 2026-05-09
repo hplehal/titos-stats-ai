@@ -414,6 +414,7 @@ export default function TrackerPage() {
               endDialogOpen={endDialogOpen}
               onEndRally={handleOpenEndDialog}
               onAutoCloseRequest={scheduleAutoClose}
+              getVideoTime={() => videoRef.current?.getCurrentTime() ?? 0}
             />
           )}
           <RallyPanel

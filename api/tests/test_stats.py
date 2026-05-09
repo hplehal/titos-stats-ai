@@ -81,6 +81,7 @@ async def _add_play(
             "action": action,
             "result": result,
             "sequence": seq,
+            "play_time_seconds": 0,
             "team": team,
         },
     )
