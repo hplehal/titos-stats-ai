@@ -113,6 +113,24 @@ export function getActionConstraints(
   return { allowedActions: ALL_ACTIONS, expectedTeam: null, reason: "" };
 }
 
+// True if this action+result combo unambiguously ends a rally — used to
+// trigger the 1s auto-close grace (Phase C). Refinement 2: any ERROR result
+// is rally-ending, plus SUCCESS for ATTACK / SERVE / BLOCK (kill, ace, stuff).
+// FREEBALL+SUCCESS is intentionally excluded — too rare and easy to misread.
+export function isRallyEndingPlay(
+  action: PlayAction,
+  result: PlayResult,
+): boolean {
+  if (result === "ERROR") return true;
+  if (
+    result === "SUCCESS" &&
+    (action === "ATTACK" || action === "SERVE" || action === "BLOCK")
+  ) {
+    return true;
+  }
+  return false;
+}
+
 // suggestWinner: who won the rally based on the last play. Used by the End
 // Rally dialog to pre-highlight the implied winner (Phase A step 3).
 export function suggestWinner(

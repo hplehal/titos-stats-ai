@@ -271,16 +271,50 @@ export default function TrackerPage() {
     toast(`Undid: ${desc}`);
   }
 
+  // Auto-close grace (Phase C): drawer fires onAutoCloseRequest after a
+  // rally-ending play. We show a 1s sonner toast with an inline Undo, and
+  // open the end-rally dialog when the timer fires. Esc cancels both.
+  const autoCloseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const autoCloseToastIdRef = useRef<string | number | null>(null);
+
+  function cancelAutoClose() {
+    if (autoCloseTimerRef.current) {
+      clearTimeout(autoCloseTimerRef.current);
+      autoCloseTimerRef.current = null;
+    }
+    if (autoCloseToastIdRef.current !== null) {
+      toast.dismiss(autoCloseToastIdRef.current);
+      autoCloseToastIdRef.current = null;
+    }
+  }
+
+  function scheduleAutoClose() {
+    cancelAutoClose();
+    const id = toast("Rally closing…", {
+      description: "Esc to undo",
+      duration: 1000,
+      action: { label: "Undo", onClick: () => cancelAutoClose() },
+    });
+    autoCloseToastIdRef.current = id;
+    autoCloseTimerRef.current = setTimeout(() => {
+      autoCloseTimerRef.current = null;
+      autoCloseToastIdRef.current = null;
+      setEndDialogOpen(true);
+    }, 1000);
+  }
+
   function handleStartRally() {
     const t = videoRef.current?.getCurrentTime() ?? 0;
     createRallyMut.mutate(t);
   }
   function handleOpenEndDialog() {
     if (!activeRally) return;
+    cancelAutoClose();
     setEndDialogOpen(true);
   }
   function handleEndRallyPick(side: "home" | "away") {
     if (!activeRally) return;
+    cancelAutoClose();
     const t = videoRef.current?.getCurrentTime() ?? activeRally.start_time;
     endRallyMut.mutate({
       rally_id: activeRally.id,
@@ -317,6 +351,9 @@ export default function TrackerPage() {
       } else if ((e.metaKey || e.ctrlKey) && (e.key === "z" || e.key === "Z")) {
         e.preventDefault();
         handleUndo();
+      } else if (e.key === "Escape" && autoCloseTimerRef.current) {
+        e.preventDefault();
+        cancelAutoClose();
       } else if (e.key === "r" || e.key === "R") {
         e.preventDefault();
         if (activeRally) handleOpenEndDialog();
@@ -376,6 +413,7 @@ export default function TrackerPage() {
               ralliesKey={ralliesKey}
               endDialogOpen={endDialogOpen}
               onEndRally={handleOpenEndDialog}
+              onAutoCloseRequest={scheduleAutoClose}
             />
           )}
           <RallyPanel

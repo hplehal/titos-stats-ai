@@ -11,7 +11,12 @@ import { showApiError } from "@/lib/api-error";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { formatTimecode } from "@/lib/format";
-import { getActionConstraints, type PlaySnapshot, type Side } from "./play-rules";
+import {
+  getActionConstraints,
+  isRallyEndingPlay,
+  type PlaySnapshot,
+  type Side,
+} from "./play-rules";
 
 type Rally = components["schemas"]["RallyRead"];
 type Play = components["schemas"]["PlayRead"];
@@ -116,6 +121,8 @@ type Props = {
   ralliesKey: readonly unknown[];
   endDialogOpen: boolean;
   onEndRally: () => void;
+  /** Fired after a rally-ending play commits — page schedules the 1s grace. */
+  onAutoCloseRequest?: () => void;
 };
 
 export function ActiveRallyDrawer({
@@ -126,6 +133,7 @@ export function ActiveRallyDrawer({
   ralliesKey,
   endDialogOpen,
   onEndRally,
+  onAutoCloseRequest,
 }: Props) {
   const queryClient = useQueryClient();
 
@@ -289,8 +297,9 @@ export function ActiveRallyDrawer({
   });
 
   function commit(result: PlayResult, action: PlayAction) {
+    const priorPlaysCount = rally.plays.length;
     const sequence =
-      rally.plays.length > 0
+      priorPlaysCount > 0
         ? Math.max(...rally.plays.map((p) => p.sequence)) + 1
         : 1;
     createPlayMut.mutate({
@@ -302,6 +311,13 @@ export function ActiveRallyDrawer({
     });
     setPendingAction(null);
     setUnattributedNext(false);
+
+    // Auto-close grace (Phase C). Skip when this is the first play of the
+    // rally — Refinement 1: a rally-ending key combo on play 1 is almost
+    // always a misfire (e.g., F-S before the serve was tagged).
+    if (priorPlaysCount > 0 && isRallyEndingPlay(action, result)) {
+      onAutoCloseRequest?.();
+    }
   }
 
   // Drawer-scoped hotkeys: H/A team, 1-9 player, Q/W/E/F/T/Y/U action,
