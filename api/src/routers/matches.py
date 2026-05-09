@@ -1,4 +1,9 @@
+import csv
+import io
+import zipfile
+
 from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.responses import Response
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -127,3 +132,140 @@ async def match_stats(
     if stats is None:
         raise HTTPException(404, "Match not found.")
     return stats
+
+
+_PLAYS_COLUMNS = [
+    "match_id",
+    "rally_id",
+    "rally_number",
+    "play_sequence",
+    "start_time_seconds",
+    "team",
+    "player_name",
+    "jersey_number",
+    "action",
+    "result",
+]
+_STATS_COLUMNS = [
+    "scope",
+    "team_name",
+    "player_name",
+    "jersey_number",
+    "kills",
+    "attack_errors",
+    "aces",
+    "service_errors",
+    "blocks",
+    "digs",
+    "reception_errors",
+    "assists",
+    "total_points",
+]
+
+
+@router.get("/{match_id}/export.zip")
+async def export_match(
+    match_id: str,
+    db: AsyncSession = Depends(get_db),
+) -> Response:
+    # One trip for everything the CSVs need.
+    result = await db.execute(
+        select(models.Match)
+        .where(models.Match.id == match_id)
+        .options(
+            selectinload(models.Match.home_team).selectinload(
+                models.Team.players
+            ),
+            selectinload(models.Match.away_team).selectinload(
+                models.Team.players
+            ),
+            selectinload(models.Match.rallies)
+            .selectinload(models.Rally.plays)
+            .selectinload(models.Play.player),
+        )
+    )
+    match = result.scalar_one_or_none()
+    if match is None:
+        raise HTTPException(404, "Match not found.")
+
+    stats = await derive_match_stats(match_id, db)
+    assert stats is not None  # match exists; stats can't be None here.
+
+    plays_buf = io.StringIO()
+    plays_writer = csv.writer(plays_buf)
+    plays_writer.writerow(_PLAYS_COLUMNS)
+    rallies_sorted = sorted(match.rallies, key=lambda r: r.start_time)
+    for rally_number, rally in enumerate(rallies_sorted, start=1):
+        for play in sorted(rally.plays, key=lambda p: p.sequence):
+            plays_writer.writerow(
+                [
+                    match.id,
+                    rally.id,
+                    rally_number,
+                    play.sequence,
+                    rally.start_time,
+                    play.team or "",
+                    play.player.name if play.player else "",
+                    play.player.jersey_number if play.player else "",
+                    play.action.value,
+                    play.result.value,
+                ]
+            )
+
+    stats_buf = io.StringIO()
+    stats_writer = csv.writer(stats_buf)
+    stats_writer.writerow(_STATS_COLUMNS)
+    for team_stats in (stats.home, stats.away):
+        # total_points uses the same K+Aces+Blocks definition as PlayerStats.
+        team_points = team_stats.kills + team_stats.aces + team_stats.blocks
+        stats_writer.writerow(
+            [
+                "team",
+                team_stats.name,
+                "",
+                "",
+                team_stats.kills,
+                team_stats.attack_errors,
+                team_stats.aces,
+                team_stats.service_errors,
+                team_stats.blocks,
+                team_stats.digs,
+                team_stats.reception_errors,
+                team_stats.assists,
+                team_points,
+            ]
+        )
+    team_name_by_side = {"home": stats.home.name, "away": stats.away.name}
+    for ps in stats.players:
+        stats_writer.writerow(
+            [
+                "player",
+                team_name_by_side[ps.team],
+                ps.name,
+                ps.jersey_number,
+                ps.kills,
+                ps.attack_errors,
+                ps.aces,
+                ps.service_errors,
+                ps.blocks,
+                ps.digs,
+                ps.reception_errors,
+                ps.assists,
+                ps.points,
+            ]
+        )
+
+    zip_buf = io.BytesIO()
+    with zipfile.ZipFile(zip_buf, "w", zipfile.ZIP_DEFLATED) as zf:
+        zf.writestr("plays.csv", plays_buf.getvalue())
+        zf.writestr("stats.csv", stats_buf.getvalue())
+
+    date_str = match.played_at.strftime("%Y-%m-%d")
+    filename = f"{match.id}-{date_str}.zip"
+    return Response(
+        content=zip_buf.getvalue(),
+        media_type="application/zip",
+        headers={
+            "Content-Disposition": f'attachment; filename="{filename}"',
+        },
+    )

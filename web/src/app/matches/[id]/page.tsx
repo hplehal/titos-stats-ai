@@ -247,6 +247,12 @@ export default function TrackerPage() {
         {match.tier !== null && match.tier !== undefined && (
           <Badge variant="secondary">Tier {match.tier}</Badge>
         )}
+        <Link
+          href={`/matches/${matchId}/summary`}
+          className="ml-auto text-sm text-muted-foreground hover:underline"
+        >
+          Summary →
+        </Link>
       </div>
 
       <div className="grid grid-cols-[3fr_2fr] gap-6 items-start">
