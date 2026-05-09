@@ -4,9 +4,14 @@ import { useQuery } from "@tanstack/react-query";
 import { Download } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
+import { useState } from "react";
 
+import {
+  buildUnattributedRows,
+  ResolveAttributionDialog,
+} from "@/components/tracker/resolve-attribution-dialog";
 import { Badge } from "@/components/ui/badge";
-import { buttonVariants } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
   Table,
@@ -28,6 +33,7 @@ const API_BASE =
 export default function MatchSummaryPage() {
   const params = useParams<{ id: string }>();
   const matchId = params.id;
+  const [resolveOpen, setResolveOpen] = useState(false);
 
   const { data: match, isLoading: matchLoading } = useQuery({
     queryKey: ["matches", matchId],
@@ -51,12 +57,27 @@ export default function MatchSummaryPage() {
     },
   });
 
+  // Pull rallies so we can list unattributed plays + their rally context for
+  // the Resolve-attribution dialog.
+  const { data: rallies = [] } = useQuery({
+    queryKey: ["matches", matchId, "rallies"],
+    queryFn: async () => {
+      const { data, error } = await api.GET("/matches/{match_id}/rallies", {
+        params: { path: { match_id: matchId } },
+      });
+      if (error) throw new Error("Failed to load rallies");
+      return data!;
+    },
+  });
+
   if (matchLoading || statsLoading) {
     return <p className="text-muted-foreground">Loading…</p>;
   }
   if (!match || !stats) {
     return <p className="text-muted-foreground">Match not found.</p>;
   }
+
+  const unattributed = buildUnattributedRows(rallies);
 
   const playedDate = new Date(match.played_at).toLocaleDateString(undefined, {
     year: "numeric",
@@ -106,6 +127,25 @@ export default function MatchSummaryPage() {
         )}
       </div>
 
+      {unattributed.length > 0 && (
+        <Card className="border-yellow-500/60 bg-yellow-50/40 dark:bg-yellow-950/20">
+          <CardContent className="py-3 flex items-center justify-between gap-3">
+            <div className="text-sm">
+              <span className="font-semibold">
+                {unattributed.length} unattributed{" "}
+                {unattributed.length === 1 ? "play" : "plays"}
+              </span>{" "}
+              <span className="text-muted-foreground">
+                — these aren&apos;t credited to any player yet.
+              </span>
+            </div>
+            <Button size="sm" onClick={() => setResolveOpen(true)}>
+              Resolve attribution
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
       <Card>
         <CardContent className="py-3">
           <Table>
@@ -122,6 +162,15 @@ export default function MatchSummaryPage() {
           </Table>
         </CardContent>
       </Card>
+
+      <ResolveAttributionDialog
+        open={resolveOpen}
+        onOpenChange={setResolveOpen}
+        matchId={matchId}
+        rows={unattributed}
+        homePlayers={match.home_team.players}
+        awayPlayers={match.away_team.players}
+      />
 
       <PlayerTable
         title={match.home_team.name}

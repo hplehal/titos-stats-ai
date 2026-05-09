@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import { toast } from "sonner";
 
 import { ActiveRallyDrawer } from "@/components/tracker/active-rally-drawer";
 import { EndRallyDialog } from "@/components/tracker/end-rally-dialog";
@@ -20,6 +21,19 @@ import { showApiError } from "@/lib/api-error";
 import { api } from "@/lib/api";
 
 type PlayerLite = { id: string; name: string; jersey_number: number };
+type PlayLite = Rally["plays"][number];
+
+function describePlay(
+  play: PlayLite,
+  players: PlayerLite[],
+): string {
+  const player =
+    play.player_id !== null
+      ? players.find((p) => p.id === play.player_id)
+      : null;
+  const who = player ? `${player.name} (#${player.jersey_number})` : "(unattributed)";
+  return `${play.action}+${play.result} by ${who}`;
+}
 
 function inferredFromText(
   rally: Rally | null,
@@ -29,12 +43,23 @@ function inferredFromText(
   if (!rally || rally.plays.length === 0) return null;
   const last = [...rally.plays].sort((a, b) => a.sequence - b.sequence).at(-1);
   if (!last) return null;
-  const player =
-    last.player_id !== null
-      ? [...homePlayers, ...awayPlayers].find((p) => p.id === last.player_id)
-      : null;
-  const who = player ? `${player.name} (#${player.jersey_number})` : "(unattributed)";
-  return `${last.action}+${last.result} by ${who}`;
+  return describePlay(last, [...homePlayers, ...awayPlayers]);
+}
+
+// Find the most-recently created play across every rally in the match: latest
+// rally by start_time, highest sequence within. Walks back to earlier rallies
+// when the latest is empty (e.g., immediately after starting a new rally).
+function findMostRecentPlay(rallies: Rally[]): {
+  rallyId: string;
+  play: PlayLite;
+} | null {
+  const byTime = [...rallies].sort((a, b) => b.start_time - a.start_time);
+  for (const r of byTime) {
+    if (r.plays.length === 0) continue;
+    const last = [...r.plays].sort((a, b) => b.sequence - a.sequence)[0];
+    return { rallyId: r.id, play: last };
+  }
+  return null;
 }
 
 export default function TrackerPage() {
@@ -186,6 +211,66 @@ export default function TrackerPage() {
     onSettled: () => queryClient.invalidateQueries({ queryKey: ralliesKey }),
   });
 
+  // Cmd+Z / Ctrl+Z removes the most recently created play across the match.
+  // Optimistic; toast confirms with the play description so the user can
+  // verify they zapped what they expected.
+  const undoPlayMut = useMutation({
+    mutationFn: async (play_id: string) => {
+      const { error, response } = await api.DELETE("/plays/{play_id}", {
+        params: { path: { play_id } },
+      });
+      if (error) {
+        showApiError(response.status, error);
+        throw new Error("undo failed");
+      }
+    },
+    onMutate: async (play_id) => {
+      await queryClient.cancelQueries({ queryKey: ralliesKey });
+      const prev = queryClient.getQueryData<Rally[]>(ralliesKey);
+      queryClient.setQueryData<Rally[]>(
+        ralliesKey,
+        (prev ?? []).map((r) => ({
+          ...r,
+          plays: r.plays.filter((p) => p.id !== play_id),
+        })),
+      );
+      return { prev };
+    },
+    onError: (_e, _v, ctx) => {
+      if (ctx?.prev) queryClient.setQueryData(ralliesKey, ctx.prev);
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ralliesKey });
+      queryClient.invalidateQueries({
+        queryKey: ["matches", matchId, "stats"],
+      });
+    },
+  });
+
+  // Refs read inside the keydown handler so Cmd+Z always sees live rallies
+  // and match state. The keydown effect's deps don't include rallies (rebinding
+  // on every play change is unnecessary), so handleUndo reaches through refs
+  // to avoid a stale closure.
+  const ralliesRef = useRef<Rally[]>(rallies);
+  const matchRef = useRef<typeof match | null>(match ?? null);
+  ralliesRef.current = rallies;
+  matchRef.current = match ?? null;
+
+  function handleUndo() {
+    const target = findMostRecentPlay(ralliesRef.current);
+    const m = matchRef.current;
+    if (!target || !m) {
+      toast("Nothing to undo");
+      return;
+    }
+    const desc = describePlay(target.play, [
+      ...m.home_team.players,
+      ...m.away_team.players,
+    ]);
+    undoPlayMut.mutate(target.play.id);
+    toast(`Undid: ${desc}`);
+  }
+
   function handleStartRally() {
     const t = videoRef.current?.getCurrentTime() ?? 0;
     createRallyMut.mutate(t);
@@ -229,6 +314,9 @@ export default function TrackerPage() {
       } else if (e.key === "ArrowRight") {
         e.preventDefault();
         videoRef.current?.seekRelative(2);
+      } else if ((e.metaKey || e.ctrlKey) && (e.key === "z" || e.key === "Z")) {
+        e.preventDefault();
+        handleUndo();
       } else if (e.key === "r" || e.key === "R") {
         e.preventDefault();
         if (activeRally) handleOpenEndDialog();

@@ -133,6 +133,10 @@ export function ActiveRallyDrawer({
   const [playerId, setPlayerId] = useState<string | null>(null);
   const [pendingAction, setPendingAction] = useState<PlayAction | null>(null);
   const [pulseTeam, setPulseTeam] = useState<Side | null>(null);
+  // One-shot "skip player" flag set by the ? hotkey. While true, action buttons
+  // bypass the playerId requirement and the next commit sends player_id=null.
+  // Resets after commit or rally change.
+  const [unattributedNext, setUnattributedNext] = useState(false);
   const partialTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const prevPlaysCountRef = useRef(rally.plays.length);
 
@@ -156,6 +160,7 @@ export function ActiveRallyDrawer({
     setPendingAction(null);
     setSide(null);
     setPlayerId(null);
+    setUnattributedNext(false);
   }, [rally.id]);
 
   // Auto-flip team toggle when a play just committed and the engine expects
@@ -292,10 +297,11 @@ export function ActiveRallyDrawer({
       action,
       result,
       team: side,
-      player_id: playerId,
+      player_id: unattributedNext ? null : playerId,
       sequence,
     });
     setPendingAction(null);
+    setUnattributedNext(false);
   }
 
   // Drawer-scoped hotkeys: H/A team, 1-9 player, Q/W/E/F/T/Y/U action,
@@ -313,6 +319,16 @@ export function ActiveRallyDrawer({
       }
       if (endDialogOpen) return;
       const k = e.key.toLowerCase();
+
+      // ? toggles "next play is unattributed" — bypasses the playerId
+      // requirement on action buttons and forces player_id=null on commit.
+      // Match by key char (`?`) and by shift+slash to be portable across
+      // browser keyboard-layout normalizations.
+      if (e.key === "?" || (e.shiftKey && e.code === "Slash")) {
+        e.preventDefault();
+        setUnattributedNext((v) => !v);
+        return;
+      }
 
       if (k === "h") {
         e.preventDefault();
@@ -358,6 +374,7 @@ export function ActiveRallyDrawer({
     endDialogOpen,
     activeRoster,
     constraints.allowedActions,
+    unattributedNext,
   ]);
 
   return (
@@ -435,6 +452,24 @@ export function ActiveRallyDrawer({
           </p>
         )}
 
+        {/* Unattributed-mode banner — set by ? hotkey; one-shot until commit. */}
+        {unattributedNext && (
+          <div className="flex items-center justify-between gap-2 rounded-md border border-yellow-400/60 bg-yellow-50 dark:border-yellow-700/60 dark:bg-yellow-950/30 px-3 py-2 text-xs">
+            <span>
+              <span className="font-semibold">Unattributed</span> — next commit
+              skips the player. Press <kbd className="px-1 py-0.5 rounded bg-background border text-[10px]">?</kbd> again to cancel.
+            </span>
+            <Button
+              variant="ghost"
+              size="icon-xs"
+              onClick={() => setUnattributedNext(false)}
+              aria-label="Cancel unattributed mode"
+            >
+              <X className="size-3" />
+            </Button>
+          </div>
+        )}
+
         {/* Action grid — color-coded; row 1 offensive (Q W E F), row 2 defensive (T Y U). */}
         <div className="space-y-2">
           <div className="grid grid-cols-4 gap-2">
@@ -443,7 +478,9 @@ export function ActiveRallyDrawer({
                 key={a.action}
                 a={a}
                 disabled={
-                  !side || !playerId || !constraints.allowedActions.has(a.action)
+                  !side ||
+                  (!playerId && !unattributedNext) ||
+                  !constraints.allowedActions.has(a.action)
                 }
                 allowed={constraints.allowedActions.has(a.action)}
                 staged={pendingAction === a.action}
@@ -458,7 +495,9 @@ export function ActiveRallyDrawer({
                 key={a.action}
                 a={a}
                 disabled={
-                  !side || !playerId || !constraints.allowedActions.has(a.action)
+                  !side ||
+                  (!playerId && !unattributedNext) ||
+                  !constraints.allowedActions.has(a.action)
                 }
                 allowed={constraints.allowedActions.has(a.action)}
                 staged={pendingAction === a.action}
@@ -479,6 +518,7 @@ export function ActiveRallyDrawer({
               Staged:{" "}
               <span className="font-semibold">{pendingAction}</span> by{" "}
               {(() => {
+                if (unattributedNext) return "(unattributed)";
                 const player = activeRoster.find((p) => p.id === playerId);
                 return player
                   ? `#${player.jersey_number} ${player.name}`
@@ -539,10 +579,18 @@ export function ActiveRallyDrawer({
                     [...homeTeam.players, ...awayTeam.players].find(
                       (x) => x.id === p.player_id,
                     ) ?? null;
+                  const unattributed = p.player_id === null;
                   return (
                     <li
                       key={p.id}
-                      className="flex items-center gap-2 text-xs"
+                      title={
+                        unattributed ? "Needs attribution" : undefined
+                      }
+                      className={cn(
+                        "flex items-center gap-2 text-xs px-1 rounded",
+                        unattributed &&
+                          "border-l-2 border-yellow-500 bg-yellow-50 dark:bg-yellow-950/20",
+                      )}
                     >
                       <span className="text-muted-foreground tabular-nums w-5">
                         {p.sequence}
@@ -556,8 +604,8 @@ export function ActiveRallyDrawer({
                             {player.name}
                           </>
                         ) : (
-                          <span className="text-muted-foreground">
-                            (no player)
+                          <span className="text-yellow-700 dark:text-yellow-300 font-medium">
+                            needs attribution
                           </span>
                         )}{" "}
                         — {p.action} {p.result}
