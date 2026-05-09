@@ -1,16 +1,17 @@
 "use client";
 
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Trash2 } from "lucide-react";
+import { Trash2, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import type { components } from "@/lib/api-types";
 import { showApiError } from "@/lib/api-error";
 import { api } from "@/lib/api";
+import { cn } from "@/lib/utils";
 import { formatTimecode } from "@/lib/format";
+import { getActionConstraints, type PlaySnapshot, type Side } from "./play-rules";
 
 type Rally = components["schemas"]["RallyRead"];
 type Play = components["schemas"]["PlayRead"];
@@ -29,10 +30,73 @@ const ACTIONS: { key: string; action: PlayAction; label: string }[] = [
   { key: "U", action: "FREEBALL", label: "Freeball" },
 ];
 
-const RESULTS: { key: string; result: PlayResult; label: string }[] = [
-  { key: "S", result: "SUCCESS", label: "Success" },
-  { key: "X", result: "ERROR", label: "Error" },
-  { key: "C", result: "CONTINUED", label: "Continued" },
+// Row 1 = offensive sequence (serve→pass→set→attack); row 2 = defensive +
+// emergency. Two grids instead of cols-7 wrap so each cell is finger-targetable.
+const ACTIONS_ROW_1 = ACTIONS.slice(0, 4);
+const ACTIONS_ROW_2 = ACTIONS.slice(4);
+
+// Color identity helps muscle memory during real-time tracking.
+// All class strings are literal so Tailwind's JIT picks them up.
+const ACTION_STYLES: Record<
+  PlayAction,
+  { enabled: string; disabled: string; ring: string }
+> = {
+  SERVE: {
+    enabled: "bg-blue-500 text-white hover:bg-blue-600",
+    disabled: "bg-blue-500/15 text-blue-900/60 dark:text-blue-200/50",
+    ring: "ring-blue-500",
+  },
+  PASS: {
+    enabled: "bg-emerald-500 text-white hover:bg-emerald-600",
+    disabled: "bg-emerald-500/15 text-emerald-900/60 dark:text-emerald-200/50",
+    ring: "ring-emerald-500",
+  },
+  SET: {
+    enabled: "bg-amber-500 text-white hover:bg-amber-600",
+    disabled: "bg-amber-500/15 text-amber-900/70 dark:text-amber-200/50",
+    ring: "ring-amber-500",
+  },
+  ATTACK: {
+    enabled: "bg-red-500 text-white hover:bg-red-600",
+    disabled: "bg-red-500/15 text-red-900/60 dark:text-red-200/50",
+    ring: "ring-red-500",
+  },
+  BLOCK: {
+    enabled: "bg-purple-500 text-white hover:bg-purple-600",
+    disabled: "bg-purple-500/15 text-purple-900/60 dark:text-purple-200/50",
+    ring: "ring-purple-500",
+  },
+  DIG: {
+    enabled: "bg-orange-500 text-white hover:bg-orange-600",
+    disabled: "bg-orange-500/15 text-orange-900/60 dark:text-orange-200/50",
+    ring: "ring-orange-500",
+  },
+  FREEBALL: {
+    enabled: "bg-slate-500 text-white hover:bg-slate-600",
+    disabled: "bg-slate-500/15 text-slate-900/60 dark:text-slate-200/50",
+    ring: "ring-slate-500",
+  },
+};
+
+const RESULTS: { key: string; result: PlayResult; label: string; bg: string }[] = [
+  {
+    key: "S",
+    result: "SUCCESS",
+    label: "Success",
+    bg: "bg-emerald-500 hover:bg-emerald-600",
+  },
+  {
+    key: "X",
+    result: "ERROR",
+    label: "Error",
+    bg: "bg-red-500 hover:bg-red-600",
+  },
+  {
+    key: "C",
+    result: "CONTINUED",
+    label: "Continued",
+    bg: "bg-blue-500 hover:bg-blue-600",
+  },
 ];
 
 const ACTION_KEY_MAP = new Map(
@@ -68,10 +132,21 @@ export function ActiveRallyDrawer({
   const [side, setSide] = useState<"home" | "away" | null>(null);
   const [playerId, setPlayerId] = useState<string | null>(null);
   const [pendingAction, setPendingAction] = useState<PlayAction | null>(null);
+  const [pulseTeam, setPulseTeam] = useState<Side | null>(null);
   const partialTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const prevPlaysCountRef = useRef(rally.plays.length);
 
   const activeRoster =
     side === "home" ? homeTeam.players : side === "away" ? awayTeam.players : [];
+
+  const playsSorted: PlaySnapshot[] = [...rally.plays]
+    .sort((a, b) => a.sequence - b.sequence)
+    .map((p) => ({
+      action: p.action,
+      result: p.result,
+      team: p.team === "home" || p.team === "away" ? p.team : null,
+    }));
+  const constraints = getActionConstraints(playsSorted);
 
   // Reset player when team flips, clear pending whenever rally changes.
   useEffect(() => {
@@ -82,6 +157,23 @@ export function ActiveRallyDrawer({
     setSide(null);
     setPlayerId(null);
   }, [rally.id]);
+
+  // Auto-flip team toggle when a play just committed and the engine expects
+  // a different side next (FIX 1). H/A hotkeys still override; we only fire
+  // on commit (plays-count increased), so manual overrides aren't undone.
+  useEffect(() => {
+    const justCommitted = rally.plays.length > prevPlaysCountRef.current;
+    prevPlaysCountRef.current = rally.plays.length;
+    if (!justCommitted) return;
+    const want = constraints.expectedTeam;
+    if (want && want !== side) {
+      setSide(want);
+      setPulseTeam(want);
+      setTimeout(() => setPulseTeam(null), 300);
+    }
+    // side intentionally omitted: we react to commits, not to manual flips.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rally.plays.length, constraints.expectedTeam]);
 
   // Manage the 10s partial-state timeout.
   useEffect(() => {
@@ -243,6 +335,8 @@ export function ActiveRallyDrawer({
       const maybeAction = ACTION_KEY_MAP.get(k);
       if (maybeAction) {
         e.preventDefault();
+        // Block hotkey staging for actions ruled out by the constraint engine.
+        if (!constraints.allowedActions.has(maybeAction)) return;
         setPendingAction(maybeAction);
         return;
       }
@@ -263,6 +357,7 @@ export function ActiveRallyDrawer({
     rally.plays.length,
     endDialogOpen,
     activeRoster,
+    constraints.allowedActions,
   ]);
 
   return (
@@ -280,12 +375,21 @@ export function ActiveRallyDrawer({
           </Button>
         </div>
 
-        {/* Team toggle */}
+        {/* Team toggle — auto-flip pulses for 300ms; expected team also gets
+            a faint static halo when not yet selected. */}
         <div className="grid grid-cols-2 gap-2">
           <Button
             variant={side === "home" ? "default" : "outline"}
             size="sm"
             onClick={() => setSide("home")}
+            className={cn(
+              "transition-shadow duration-300",
+              pulseTeam === "home" && "ring-4 ring-primary",
+              constraints.expectedTeam === "home" &&
+                side !== "home" &&
+                pulseTeam !== "home" &&
+                "ring-2 ring-primary/40",
+            )}
           >
             {homeTeam.name}{" "}
             <kbd className="ml-1 text-[10px] opacity-70">H</kbd>
@@ -294,6 +398,14 @@ export function ActiveRallyDrawer({
             variant={side === "away" ? "default" : "outline"}
             size="sm"
             onClick={() => setSide("away")}
+            className={cn(
+              "transition-shadow duration-300",
+              pulseTeam === "away" && "ring-4 ring-primary",
+              constraints.expectedTeam === "away" &&
+                side !== "away" &&
+                pulseTeam !== "away" &&
+                "ring-2 ring-primary/40",
+            )}
           >
             {awayTeam.name}{" "}
             <kbd className="ml-1 text-[10px] opacity-70">A</kbd>
@@ -323,51 +435,95 @@ export function ActiveRallyDrawer({
           </p>
         )}
 
-        {/* Action row */}
-        <div className="grid grid-cols-7 gap-1">
-          {ACTIONS.map((a) => (
-            <Button
-              key={a.action}
-              variant={pendingAction === a.action ? "default" : "outline"}
-              size="xs"
-              onClick={() => setPendingAction(a.action)}
-              disabled={!side || !playerId}
-            >
-              <span className="flex flex-col items-center leading-tight">
-                <span>{a.label}</span>
-                <kbd className="text-[10px] opacity-70">{a.key}</kbd>
-              </span>
-            </Button>
-          ))}
+        {/* Action grid — color-coded; row 1 offensive (Q W E F), row 2 defensive (T Y U). */}
+        <div className="space-y-2">
+          <div className="grid grid-cols-4 gap-2">
+            {ACTIONS_ROW_1.map((a) => (
+              <ActionBtn
+                key={a.action}
+                a={a}
+                disabled={
+                  !side || !playerId || !constraints.allowedActions.has(a.action)
+                }
+                allowed={constraints.allowedActions.has(a.action)}
+                staged={pendingAction === a.action}
+                reason={constraints.reason}
+                onPick={() => setPendingAction(a.action)}
+              />
+            ))}
+          </div>
+          <div className="grid grid-cols-3 gap-2">
+            {ACTIONS_ROW_2.map((a) => (
+              <ActionBtn
+                key={a.action}
+                a={a}
+                disabled={
+                  !side || !playerId || !constraints.allowedActions.has(a.action)
+                }
+                allowed={constraints.allowedActions.has(a.action)}
+                staged={pendingAction === a.action}
+                reason={constraints.reason}
+                onPick={() => setPendingAction(a.action)}
+              />
+            ))}
+          </div>
         </div>
+        <p className="text-[11px] text-muted-foreground">
+          {constraints.reason}
+        </p>
 
-        {/* Result row */}
-        <div className="grid grid-cols-3 gap-1">
-          {RESULTS.map((r) => (
-            <Button
-              key={r.result}
-              variant="outline"
-              size="xs"
-              onClick={() => pendingAction && commit(r.result, pendingAction)}
-              disabled={!pendingAction}
-            >
-              <span className="flex flex-col items-center leading-tight">
-                <span>{r.label}</span>
-                <kbd className="text-[10px] opacity-70">{r.key}</kbd>
-              </span>
-            </Button>
-          ))}
-        </div>
-
+        {/* Staged indicator — only when an action is picked and waiting on result. */}
         {pendingAction && (
-          <p className="text-xs text-muted-foreground">
-            <Badge variant="secondary" className="mr-1.5">
-              {pendingAction}
-            </Badge>
-            staged — press S / X / C to commit (or pick another action). Clears
-            after 10s of idle.
-          </p>
+          <div className="flex items-center justify-between gap-2 rounded-md border border-amber-300/60 bg-amber-50 dark:border-amber-700/60 dark:bg-amber-950/30 px-3 py-2 text-xs">
+            <span>
+              Staged:{" "}
+              <span className="font-semibold">{pendingAction}</span> by{" "}
+              {(() => {
+                const player = activeRoster.find((p) => p.id === playerId);
+                return player
+                  ? `#${player.jersey_number} ${player.name}`
+                  : "(no player)";
+              })()}{" "}
+              ({side ?? "—"}) — pick result
+            </span>
+            <Button
+              variant="ghost"
+              size="icon-xs"
+              onClick={() => setPendingAction(null)}
+              aria-label="Clear staged action"
+            >
+              <X className="size-3" />
+            </Button>
+          </div>
         )}
+
+        {/* Result row — full-width 3-col, lit up only when an action is staged. */}
+        <div className="grid grid-cols-3 gap-2">
+          {RESULTS.map((r) => {
+            const disabled = !pendingAction;
+            return (
+              <button
+                type="button"
+                key={r.result}
+                onClick={() =>
+                  pendingAction && commit(r.result, pendingAction)
+                }
+                disabled={disabled}
+                className={cn(
+                  "relative h-12 rounded-md text-sm font-semibold transition-all",
+                  disabled
+                    ? "cursor-not-allowed bg-muted text-muted-foreground/60"
+                    : `${r.bg} text-white hover:-translate-y-0.5 hover:shadow-md animate-pulse`,
+                )}
+              >
+                {r.label}
+                <span className="absolute top-1 right-1 rounded bg-black/25 px-1 font-mono text-[10px] tracking-wide text-white">
+                  {r.key}
+                </span>
+              </button>
+            );
+          })}
+        </div>
 
         {/* Plays in rally */}
         {rally.plays.length > 0 && (
@@ -422,5 +578,49 @@ export function ActiveRallyDrawer({
         )}
       </CardContent>
     </Card>
+  );
+}
+
+function ActionBtn({
+  a,
+  disabled,
+  allowed,
+  staged,
+  reason,
+  onPick,
+}: {
+  a: { key: string; action: PlayAction; label: string };
+  disabled: boolean;
+  allowed: boolean;
+  staged: boolean;
+  reason: string;
+  onPick: () => void;
+}) {
+  const style = ACTION_STYLES[a.action];
+  return (
+    <button
+      type="button"
+      onClick={onPick}
+      disabled={disabled}
+      title={!allowed ? reason : undefined}
+      className={cn(
+        "relative h-12 rounded-md text-sm font-semibold transition-all",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2",
+        disabled
+          ? cn("cursor-not-allowed", style.disabled)
+          : cn(style.enabled, "hover:-translate-y-0.5 hover:shadow-md"),
+        staged && cn("ring-2 ring-offset-2 animate-pulse", style.ring),
+      )}
+    >
+      {a.label}
+      <span
+        className={cn(
+          "absolute top-1 right-1 rounded px-1 font-mono text-[10px] tracking-wide",
+          disabled ? "bg-foreground/10 text-foreground/60" : "bg-black/25 text-white",
+        )}
+      >
+        {a.key}
+      </span>
+    </button>
   );
 }

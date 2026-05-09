@@ -9,6 +9,7 @@ import { ActiveRallyDrawer } from "@/components/tracker/active-rally-drawer";
 import { EndRallyDialog } from "@/components/tracker/end-rally-dialog";
 import { HotkeyBar } from "@/components/tracker/hotkey-bar";
 import { LiveStats } from "@/components/tracker/live-stats";
+import { suggestWinner, type PlaySnapshot } from "@/components/tracker/play-rules";
 import { type Rally, RallyPanel } from "@/components/tracker/rally-panel";
 import {
   VideoPlayer,
@@ -17,6 +18,24 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { showApiError } from "@/lib/api-error";
 import { api } from "@/lib/api";
+
+type PlayerLite = { id: string; name: string; jersey_number: number };
+
+function inferredFromText(
+  rally: Rally | null,
+  homePlayers: PlayerLite[],
+  awayPlayers: PlayerLite[],
+): string | null {
+  if (!rally || rally.plays.length === 0) return null;
+  const last = [...rally.plays].sort((a, b) => a.sequence - b.sequence).at(-1);
+  if (!last) return null;
+  const player =
+    last.player_id !== null
+      ? [...homePlayers, ...awayPlayers].find((p) => p.id === last.player_id)
+      : null;
+  const who = player ? `${player.name} (#${player.jersey_number})` : "(unattributed)";
+  return `${last.action}+${last.result} by ${who}`;
+}
 
 export default function TrackerPage() {
   const params = useParams<{ id: string }>();
@@ -289,6 +308,25 @@ export default function TrackerPage() {
         open={endDialogOpen}
         homeName={match.home_team.name}
         awayName={match.away_team.name}
+        suggested={
+          activeRally
+            ? suggestWinner(
+                [...activeRally.plays]
+                  .sort((a, b) => a.sequence - b.sequence)
+                  .map<PlaySnapshot>((p) => ({
+                    action: p.action,
+                    result: p.result,
+                    team:
+                      p.team === "home" || p.team === "away" ? p.team : null,
+                  })),
+              )
+            : null
+        }
+        suggestedReason={inferredFromText(
+          activeRally,
+          match.home_team.players,
+          match.away_team.players,
+        )}
         onPick={handleEndRallyPick}
         onCancel={() => setEndDialogOpen(false)}
       />
