@@ -1,0 +1,8 @@
+# Caddy auto-issues + renews a Let's Encrypt cert for this hostname.
+# Requires the A record for api.titoscourts.com to point at this VPS
+# and ports 80 + 443 reachable from the internet.
+
+api.titoscourts.com {
+	reverse_proxy api:8000
+	encode gzip zstd
+}

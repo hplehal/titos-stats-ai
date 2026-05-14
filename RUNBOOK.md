@@ -514,115 +514,120 @@ git add -A && git commit -m "Match summary + CSV export"
 
 ---
 
-## Session 9 — Seed + polish (~30 min)
+## Session 9 — Produce deploy artifacts (~45 min)
+
+**No VPS execution in this session.** We build the files locally, smoke-test the docker build + compose config, and hand off for review. Session 10 runs them on the box.
 
 ```
-Build Phase 1 step 7: seed script and polish.
+Build Phase 1 step 7: deploy artifacts for the VPS.
 
-Backend (api/):
-1. Create api/src/seed.py: drops + recreates demo data — one Season "Demo Season", two Teams "Tito Sharks" / "Tito Bolts" with 8 players each (realistic names, jersey numbers 1–8), one demo Match without a video.
-2. `make seed` already wired in Session 2's Makefile.
+Tasks:
+1. api/Dockerfile — multi-stage:
+   - Builder: ghcr.io/astral-sh/uv:python3.12-bookworm-slim. `uv sync --frozen --no-dev` into /app/.venv, with deps copied separately from source so the dep layer caches.
+   - Runtime: python:3.12-slim + apt ffmpeg + tini. Copy /app/.venv, /app/src, /app/alembic, /app/alembic.ini.
+   - ENTRYPOINT tini; CMD `sh -c 'alembic upgrade head && uvicorn src.main:app --host 0.0.0.0 --port 8000'`.
 
-Frontend (web/):
-3. Empty state on home when no seasons exist.
-4. Sticky footer on tracker: "All changes saved" with small spinner during pending mutations.
-5. Run npm run build and fix any type errors.
+2. api/.dockerignore — exclude .venv, __pycache__, .pytest_cache, .mypy_cache, tests, .env*.
 
-Cleanup:
-6. Add a README.md at the repo root: prereqs, "make db-up && make migrate && make seed && make api-dev && (in another shell) cd web && npm run dev", env var reference, link to VPS_SETUP.md and PROJECT_BRIEF.md.
-7. List any TypeScript / Python warnings or unused deps and fix them.
+3. deploy/docker-compose.yml at repo root, three services:
+   - postgres: postgres:16-alpine, volume titos_pgdata, NO published port, pg_isready healthcheck.
+   - api: build ../api, env_file .env, depends_on postgres healthy, /healthz healthcheck via python urllib (no curl in slim image), start_period 20s.
+   - caddy: caddy:2-alpine, ports 80+443, mounts Caddyfile (ro) + caddy_data + caddy_config.
+
+4. deploy/Caddyfile — reverse_proxy api.titoscourts.com → api:8000 with gzip+zstd encoding.
+
+5. deploy/.env.example with: DATABASE_URL (asyncpg), DIRECT_URL (psycopg sync alias for any future tooling), POSTGRES_USER/PASSWORD/DB, R2_*, CORS_ORIGINS, API_KEY, ANTHROPIC_API_KEY (blank for Phase 1).
+
+6. deploy/deploy.sh: git pull --ff-only → docker compose up -d --build → 10s log tail → final ps. Bails if deploy/.env missing. chmod +x.
+
+7. deploy/README.md — manual ops runbook: initial setup (clone + chmod 600 .env + first deploy), redeploy, rollback to tag, logs, individual service restart, db backup, teardown.
+
+8. Confirm api/src/main.py CORS reads CORS_ORIGINS from env via the existing cors_origins_list property (no code change needed — verify only).
 ```
 
-**Verify:**
-- `make seed` populates DB
-- No console errors in browser
-- `npm run build` and `cd api && uv run mypy src` both succeed
+**Verify (locally, no VPS touch):**
+- `cd api && docker build -t titos-api:check .` succeeds
+- `docker run --rm --entrypoint sh titos-api:check -c "python -c 'from src.main import app' && alembic --version"` runs cleanly
+- `cp deploy/.env.example deploy/.env && docker compose -f deploy/docker-compose.yml --env-file deploy/.env config --quiet && rm deploy/.env` returns 0
+- `docker rmi titos-api:check` cleans up
 
-**Commit:**
+**Commit + push** (Session 10 needs these on `main`):
 ```bash
-git add -A && git commit -m "Seed script, README, polish"
-git tag phase-1-local-complete
+git add api/Dockerfile api/.dockerignore deploy/
+git commit -m "Deploy artifacts: Dockerfile + compose + Caddyfile"
+git push
 ```
 
-🎉 You can now use the tracker locally for real Tito's matches.
+🎉 Artifacts ready for VPS execution.
 
 ---
 
-## Session 10 — Deploy backend to VPS (~1.5 hrs)
+## Session 10 — Execute deploy on VPS (~30 min)
 
-**Prerequisite:** `VPS_SETUP.md` complete — Ubuntu installed, Docker working, DNS A record for `api.titoscourts.com` resolving.
+**Prerequisites:** `VPS_SETUP.md` complete (Ubuntu 24.04 LTS, Docker working, non-root sudo user, UFW with 22/tailscale + 80/443 public, fail2ban, /srv/titos-stats owned, DNS A record propagated). Session 9 committed and pushed.
 
-```
-Deploy Phase 1: backend to api.titoscourts.com.
-
-Tasks:
-1. Create api/Dockerfile:
-   - Multi-stage: builder stage with uv to install deps; runtime stage with python:3.12-slim
-   - Install ffmpeg in runtime
-   - Copy api/src and api/alembic into the image
-   - CMD runs alembic upgrade head, then uvicorn src.main:app --host 0.0.0.0 --port 8000
-
-2. Create deploy/docker-compose.yml at the repo root with three services:
-   - postgres: image postgres:16-alpine, named volume titos_pgdata, env from .env, internal network only (no exposed port)
-   - api: build context ../api, depends_on postgres, env from .env, internal port 8000, healthcheck against /healthz
-   - caddy: image caddy:2-alpine, ports 80 + 443, mounts deploy/Caddyfile and a caddy_data volume, depends_on api
-
-3. Create deploy/Caddyfile:
-   ```
-   api.titoscourts.com {
-       reverse_proxy api:8000
-       encode gzip zstd
-   }
-   ```
-   Caddy auto-fetches Let's Encrypt certs.
-
-4. Create deploy/.env.example with all production env vars (DATABASE_URL pointing to the postgres service, R2_*, CORS_ORIGINS=https://stats.titoscourts.com,http://localhost:3000, ANTHROPIC_API_KEY).
-
-5. Create a deploy script deploy/deploy.sh that on the VPS:
-   - Pulls latest from main
-   - Runs docker compose -f deploy/docker-compose.yml --env-file deploy/.env up -d --build
-   - Tails logs for 10 seconds to confirm startup
-   Make it executable.
-
-6. Update api/src/main.py CORS to read CORS_ORIGINS from env (comma-separated). Verify it allows https://stats.titoscourts.com (for Phase 5) and http://localhost:3000 (for current dev).
-
-7. Document the manual deploy steps in deploy/README.md:
-   - Initial: clone repo to /srv/titos-stats on VPS, copy .env, run deploy.sh
-   - Subsequent: ssh in, git pull, run deploy.sh
-
-Don't actually run any of this on the VPS yet — just produce the artifacts. I'll execute the deploy myself after reviewing.
-```
-
-**Then manually on the VPS:**
+**On the VPS, first deploy:**
 
 ```bash
-ssh tej@82.25.91.197
+ssh tej@82.25.91.197    # or tail-IP: tej@titos-vps
 
-# Initial deploy
+# Clone (first time only)
 cd /srv/titos-stats
-git clone <your repo url> .
-cp deploy/.env.example deploy/.env
-vim deploy/.env    # fill in real values
+git clone <your-repo-url> .
 
-# Generate a strong DB password and set it both in .env and as POSTGRES_PASSWORD
-chmod +x deploy/deploy.sh
+# Secrets
+cp deploy/.env.example deploy/.env
+chmod 600 deploy/.env
+vim deploy/.env
+#   POSTGRES_PASSWORD=$(openssl rand -base64 32 | tr -d '/+=' | head -c 40)
+#   API_KEY=$(openssl rand -hex 32)
+#   DATABASE_URL=postgresql+asyncpg://titos:<POSTGRES_PASSWORD>@postgres:5432/titos
+#   DIRECT_URL=postgresql+psycopg://titos:<POSTGRES_PASSWORD>@postgres:5432/titos
+#   R2_* from Cloudflare dashboard
+
+# Deploy
 ./deploy/deploy.sh
 
-# Watch the logs
-docker compose -f deploy/docker-compose.yml logs -f
+# Container status
+docker compose -f deploy/docker-compose.yml --env-file deploy/.env ps
 ```
 
-**Verify:**
-- `https://api.titoscourts.com/healthz` returns `{"status": "ok"}` (Caddy auto-issued the cert)
-- `https://api.titoscourts.com/docs` shows the FastAPI docs
-- Update your local `web/.env.local` to `NEXT_PUBLIC_API_URL=https://api.titoscourts.com`
-- Restart `npm run dev` — your local frontend now talks to the production backend
-- Create a season on production, add a team, upload a video, track a rally end-to-end
+**Verify (from your laptop):**
 
-**Commit:**
 ```bash
-git add -A && git commit -m "Deploy: VPS production at api.titoscourts.com"
-git tag phase-1-shipped
+# Healthcheck — Caddy issued the cert, alembic ran clean
+curl -sf https://api.titoscourts.com/healthz
+#   → {"status":"ok"}
+
+# OpenAPI surface
+open https://api.titoscourts.com/docs
+```
+
+Point the local web app at prod (in `web/.env.local`):
+```
+NEXT_PUBLIC_API_URL=https://api.titoscourts.com
+NEXT_PUBLIC_API_KEY=<the same value you put in deploy/.env API_KEY>
+```
+Restart `npm run dev`. Create a season → team → players → upload a video → track a rally → export CSV. End-to-end on prod data.
+
+**Subsequent redeploys** (every code change):
+```bash
+ssh tej@82.25.91.197
+cd /srv/titos-stats
+./deploy/deploy.sh
+```
+
+**Rollback** (to a tagged release):
+```bash
+git fetch --tags
+git checkout <tag-name>
+./deploy/deploy.sh
+```
+See `deploy/README.md` for ops details (logs, restart, db backup, schema rollback notes).
+
+**Tag the shipped state:**
+```bash
+git tag phase-1-shipped && git push --tags
 ```
 
 🎉 You've shipped Phase 1.

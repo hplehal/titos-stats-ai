@@ -1,0 +1,68 @@
+# Production stack for api.titoscourts.com.
+#
+# Postgres stays on the internal compose network only (no published port).
+# Caddy is the only thing exposed; it terminates TLS and reverse-proxies
+# to the api container. The api container runs alembic migrations on start.
+#
+# Run via deploy/deploy.sh, which passes --env-file deploy/.env so compose
+# can substitute ${POSTGRES_*} into the postgres service. Application env
+# vars (DATABASE_URL, API_KEY, R2_*, CORS_ORIGINS, ANTHROPIC_API_KEY) are
+# loaded into the api container via env_file.
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: titos-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - titos_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  api:
+    build:
+      context: ../api
+      dockerfile: Dockerfile
+    container_name: titos-api
+    restart: unless-stopped
+    env_file: .env
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      # No curl in python:slim — use stdlib instead so the image stays minimal.
+      test:
+        - "CMD"
+        - "python"
+        - "-c"
+        - "import urllib.request,sys; sys.exit(0) if urllib.request.urlopen('http://localhost:8000/healthz').status == 200 else sys.exit(1)"
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  caddy:
+    image: caddy:2-alpine
+    container_name: titos-caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - api
+
+volumes:
+  titos_pgdata:
+  caddy_data:
+  caddy_config:
