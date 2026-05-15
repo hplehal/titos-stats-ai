@@ -564,26 +564,39 @@ git push
 
 ## Session 10 — Execute deploy on VPS (~30 min)
 
-**Prerequisites:** `VPS_SETUP.md` complete (Ubuntu 24.04 LTS, Docker working, non-root sudo user, UFW with 22/tailscale + 80/443 public, fail2ban, /srv/titos-stats owned, DNS A record propagated). Session 9 committed and pushed.
+**Prerequisites:** `VPS_SETUP.md` complete (Ubuntu 24.04 LTS, Docker working, non-root sudo user, UFW with 22 pinned to `tailscale0` + 80/443 public, fail2ban, Tailscale enabled at boot, `/srv/titos-stats` owned, DNS A record propagated). Session 9 committed and pushed.
+
+**SSH is Tailscale-only.** Public IP is for Caddy (80/443) traffic only — port 22 isn't reachable from the internet. Recovery if you lose Tailscale: Hostinger Console (browser VNC) → re-run `tailscale up`.
 
 **On the VPS, first deploy:**
 
 ```bash
-ssh tej@82.25.91.197    # or tail-IP: tej@titos-vps
+ssh tej@titos-vps             # tailscale MagicDNS (or ssh tej@100.85.238.62)
 
-# Clone (first time only)
+# Project dir (idempotent). Uncomment the rm only for a wipe-and-redeploy.
+sudo mkdir -p /srv/titos-stats
+sudo chown tej:tej /srv/titos-stats
 cd /srv/titos-stats
-git clone <your-repo-url> .
+# rm -rf /srv/titos-stats/{*,.[!.]*}
+git clone git@github.com:hplehal/titos-stats-ai.git .
 
 # Secrets
 cp deploy/.env.example deploy/.env
+
+# Generate strong values (echo them — you'll mirror API_KEY to the laptop)
+POSTGRES_PASSWORD=$(openssl rand -base64 32 | tr -d '/+=' | head -c 40)
+API_KEY=$(openssl rand -hex 32)
+echo "POSTGRES_PASSWORD = $POSTGRES_PASSWORD"
+echo "API_KEY           = $API_KEY"
+
+# Inject (longer placeholder first to avoid CHANGE_ME prefix collision)
+sed -i "s|CHANGE_ME_GENERATE_FRESH_FOR_PROD|$API_KEY|" deploy/.env
+sed -i "s|CHANGE_ME|$POSTGRES_PASSWORD|g" deploy/.env
+
+# Fill in R2 creds manually
+vim deploy/.env   # R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_PUBLIC_URL
+
 chmod 600 deploy/.env
-vim deploy/.env
-#   POSTGRES_PASSWORD=$(openssl rand -base64 32 | tr -d '/+=' | head -c 40)
-#   API_KEY=$(openssl rand -hex 32)
-#   DATABASE_URL=postgresql+asyncpg://titos:<POSTGRES_PASSWORD>@postgres:5432/titos
-#   DIRECT_URL=postgresql+psycopg://titos:<POSTGRES_PASSWORD>@postgres:5432/titos
-#   R2_* from Cloudflare dashboard
 
 # Deploy
 ./deploy/deploy.sh
@@ -603,16 +616,16 @@ curl -sf https://api.titoscourts.com/healthz
 open https://api.titoscourts.com/docs
 ```
 
-Point the local web app at prod (in `web/.env.local`):
+**Laptop, prod-mode frontend.** Use `web/.env.production.local` so it doesn't clobber `web/.env.local` (which keeps `npm run dev` pointed at localhost):
 ```
 NEXT_PUBLIC_API_URL=https://api.titoscourts.com
 NEXT_PUBLIC_API_KEY=<the same value you put in deploy/.env API_KEY>
 ```
-Restart `npm run dev`. Create a season → team → players → upload a video → track a rally → export CSV. End-to-end on prod data.
+Then `cd web && npm run build && npm run start`. Create a season → team → players → upload a video → track a rally → export CSV. End-to-end on prod data.
 
 **Subsequent redeploys** (every code change):
 ```bash
-ssh tej@82.25.91.197
+ssh tej@titos-vps
 cd /srv/titos-stats
 ./deploy/deploy.sh
 ```
