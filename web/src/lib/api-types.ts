@@ -182,7 +182,8 @@ export interface paths {
         delete: operations["delete_match_matches__match_id__delete"];
         options?: never;
         head?: never;
-        patch?: never;
+        /** Update Match */
+        patch: operations["update_match_matches__match_id__patch"];
         trace?: never;
     };
     "/matches/{match_id}/stats": {
@@ -366,6 +367,10 @@ export interface components {
             played_at: string;
             /** Tier */
             tier?: number | null;
+            /** Week Number */
+            week_number?: number | null;
+            /** Court */
+            court?: string | null;
             /** Video Key */
             video_key: string;
             /** Video Duration */
@@ -386,6 +391,10 @@ export interface components {
             played_at: string;
             /** Tier */
             tier: number | null;
+            /** Week Number */
+            week_number: number | null;
+            /** Court */
+            court: string | null;
             /**
              * Video Assets
              * @default []
@@ -398,6 +407,17 @@ export interface components {
             away: components["schemas"]["TeamStats"];
             /** Players */
             players: components["schemas"]["PlayerStats"][];
+        };
+        /** MatchUpdate */
+        MatchUpdate: {
+            /** Played At */
+            played_at?: string | null;
+            /** Tier */
+            tier?: number | null;
+            /** Week Number */
+            week_number?: number | null;
+            /** Court */
+            court?: string | null;
         };
         /**
          * PlayAction
@@ -1409,6 +1429,41 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_match_matches__match_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                match_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MatchUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MatchRead"];
+                };
             };
             /** @description Validation Error */
             422: {
