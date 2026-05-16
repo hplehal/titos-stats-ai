@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""One-shot, idempotent import of Thursday Coed Season 1 against the live API.
+"""One-shot, idempotent import of Thursday COED Season 1 against the live API.
 
 Creates one season, 12 teams (with current_tier set), and ~70 players. Anything
 that already exists by name is skipped; re-running is a no-op.
@@ -21,7 +21,7 @@ import httpx
 
 
 API_BASE = os.environ.get("TITOS_API_BASE", "https://api.titoscourts.com")
-SEASON_NAME = "Thursday Coed Season 1"
+SEASON_NAME = "Thursday COED Season 1"
 
 # (team_name, current_tier, [(player_name, jersey_number), ...])
 TEAMS: list[tuple[str, int, list[tuple[str, int]]]] = [
