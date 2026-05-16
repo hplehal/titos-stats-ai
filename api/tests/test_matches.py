@@ -165,3 +165,138 @@ async def test_delete_match_cascades_video(client: AsyncClient) -> None:
 
     r = await client.get(f"/matches/{created['id']}")
     assert r.status_code == 404
+
+
+# ── Phase 1.5: week_number + court ──────────────────────────────────────
+
+
+async def test_create_match_with_week_tier_court(client: AsyncClient) -> None:
+    s, h, a = await _make_season_two_teams(client)
+    r = await client.post(
+        "/matches",
+        json={
+            "season_id": s["id"],
+            "home_team_id": h["id"],
+            "away_team_id": a["id"],
+            "played_at": _played_at_iso(),
+            "tier": 1,
+            "week_number": 2,
+            "court": "Court 1",
+            "video_key": "k",
+        },
+    )
+    assert r.status_code == 201, r.text
+    body = r.json()
+    assert body["tier"] == 1
+    assert body["week_number"] == 2
+    assert body["court"] == "Court 1"
+
+    got = (await client.get(f"/matches/{body['id']}")).json()
+    assert got["week_number"] == 2
+    assert got["court"] == "Court 1"
+
+
+async def test_create_match_week_court_default_null(client: AsyncClient) -> None:
+    """Both fields nullable so existing match-create paths keep working."""
+    s, h, a = await _make_season_two_teams(client)
+    r = await client.post(
+        "/matches",
+        json={
+            "season_id": s["id"],
+            "home_team_id": h["id"],
+            "away_team_id": a["id"],
+            "played_at": _played_at_iso(),
+            "video_key": "k",
+        },
+    )
+    body = r.json()
+    assert body["week_number"] is None
+    assert body["court"] is None
+
+
+async def test_patch_match_week_court(client: AsyncClient) -> None:
+    s, h, a = await _make_season_two_teams(client)
+    match = (
+        await client.post(
+            "/matches",
+            json={
+                "season_id": s["id"],
+                "home_team_id": h["id"],
+                "away_team_id": a["id"],
+                "played_at": _played_at_iso(),
+                "video_key": "k",
+            },
+        )
+    ).json()
+
+    r = await client.patch(
+        f"/matches/{match['id']}",
+        json={"week_number": 3, "court": "Court 2", "tier": 4},
+    )
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["week_number"] == 3
+    assert body["court"] == "Court 2"
+    assert body["tier"] == 4
+
+
+async def test_patch_match_404(client: AsyncClient) -> None:
+    r = await client.patch(
+        "/matches/does-not-exist", json={"week_number": 1}
+    )
+    assert r.status_code == 404
+
+
+async def test_week_court_appear_in_csv_export(client: AsyncClient) -> None:
+    """plays.csv carries week_number + court as the final two columns."""
+    import csv
+    import io
+    import zipfile
+
+    s, h, a = await _make_season_two_teams(client)
+    player = (
+        await client.post(
+            "/players",
+            json={"name": "Hitter", "team_id": h["id"], "jersey_number": 7},
+        )
+    ).json()
+    match = (
+        await client.post(
+            "/matches",
+            json={
+                "season_id": s["id"],
+                "home_team_id": h["id"],
+                "away_team_id": a["id"],
+                "played_at": _played_at_iso(),
+                "tier": 1,
+                "week_number": 4,
+                "court": "Court 2",
+                "video_key": "k",
+            },
+        )
+    ).json()
+    rally = (
+        await client.post(
+            f"/matches/{match['id']}/rallies", json={"start_time": 0}
+        )
+    ).json()
+    await client.post(
+        f"/rallies/{rally['id']}/plays",
+        json={
+            "player_id": player["id"],
+            "action": "ATTACK",
+            "result": "SUCCESS",
+            "sequence": 1,
+            "play_time_seconds": 0,
+            "team": "home",
+        },
+    )
+
+    resp = await client.get(f"/matches/{match['id']}/export.zip")
+    assert resp.status_code == 200
+    zf = zipfile.ZipFile(io.BytesIO(resp.content))
+    plays = list(csv.DictReader(io.StringIO(zf.read("plays.csv").decode())))
+    assert plays[0]["week_number"] == "4"
+    assert plays[0]["court"] == "Court 2"
+    header = list(plays[0].keys())
+    assert header[-2:] == ["week_number", "court"]

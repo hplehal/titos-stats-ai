@@ -130,6 +130,10 @@ class Match(Base):
         DateTime(timezone=True), nullable=False
     )
     tier: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    # Phase 1.5: league-week grouping + which court the match was played on.
+    # Both nullable for backfill compatibility; UI may default to most-recent.
+    week_number: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    court: Mapped[str | None] = mapped_column(String(32), nullable=True)
 
     season: Mapped["Season"] = relationship(back_populates="matches")
     home_team: Mapped["Team"] = relationship(foreign_keys=[home_team_id])

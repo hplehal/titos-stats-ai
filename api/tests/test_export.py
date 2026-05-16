@@ -147,6 +147,8 @@ async def test_export_plays_columns_and_ordering(client: AsyncClient) -> None:
         "action",
         "result",
         "play_time_seconds",
+        "week_number",
+        "court",
     ] == list(plays[0].keys())
     assert len(plays) == 2
 

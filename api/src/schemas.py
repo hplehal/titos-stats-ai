@@ -11,6 +11,8 @@ _NameFieldOpt = Annotated[str | None, Field(default=None, min_length=1, max_leng
 _TierField = Annotated[int | None, Field(default=None, ge=1, le=8)]
 _JerseyField = Annotated[int, Field(ge=0, le=99)]
 _JerseyFieldOpt = Annotated[int | None, Field(default=None, ge=0, le=99)]
+_WeekField = Annotated[int | None, Field(default=None, ge=1, le=52)]
+_CourtField = Annotated[str | None, Field(default=None, min_length=1, max_length=32)]
 
 
 class SeasonCreate(BaseModel):
@@ -107,8 +109,17 @@ class MatchCreate(BaseModel):
     away_team_id: str
     played_at: datetime
     tier: _TierField
+    week_number: _WeekField
+    court: _CourtField
     video_key: Annotated[str, Field(min_length=1, max_length=512)]
     video_duration: float | None = None
+
+
+class MatchUpdate(BaseModel):
+    played_at: datetime | None = None
+    tier: _TierField
+    week_number: _WeekField
+    court: _CourtField
 
 
 class MatchRead(BaseModel):
@@ -119,6 +130,8 @@ class MatchRead(BaseModel):
     away_team: TeamReadWithPlayers
     played_at: datetime
     tier: int | None
+    week_number: int | None
+    court: str | None
     video_assets: list[VideoAssetRead] = []
 
 

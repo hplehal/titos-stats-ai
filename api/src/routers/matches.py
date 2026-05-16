@@ -84,6 +84,8 @@ async def create_match(
         away_team_id=payload.away_team_id,
         played_at=payload.played_at,
         tier=payload.tier,
+        week_number=payload.week_number,
+        court=payload.court,
     )
     video = models.VideoAsset(
         match=match,
@@ -109,6 +111,22 @@ async def read_match(
     if match is None:
         raise HTTPException(404, "Match not found.")
     return match
+
+
+@router.patch("/{match_id}", response_model=schemas.MatchRead)
+async def update_match(
+    match_id: str,
+    payload: schemas.MatchUpdate,
+    db: AsyncSession = Depends(get_db),
+) -> models.Match:
+    match = await db.get(models.Match, match_id)
+    if match is None:
+        raise HTTPException(404, "Match not found.")
+    for k, v in payload.model_dump(exclude_unset=True).items():
+        setattr(match, k, v)
+    await db.commit()
+    result = await db.execute(_full_match_query(match_id))
+    return result.scalar_one()
 
 
 @router.delete("/{match_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -145,9 +163,13 @@ _PLAYS_COLUMNS = [
     "jersey_number",
     "action",
     "result",
-    # Per-play video timestamp captured at tag time. Appended to keep
-    # column-index-based readers of the original 10-col layout working.
+    # Per-play video timestamp captured at tag time. Appended (post-Phase 1)
+    # to keep column-index-based readers of the original 10-col layout working.
     "play_time_seconds",
+    # Match-level grouping (Phase 1.5). Constant per row within a match —
+    # denormalized here so downstream tools can filter without re-joining.
+    "week_number",
+    "court",
 ]
 _STATS_COLUMNS = [
     "scope",
@@ -213,6 +235,8 @@ async def export_match(
                     play.action.value,
                     play.result.value,
                     play.play_time_seconds,
+                    match.week_number if match.week_number is not None else "",
+                    match.court or "",
                 ]
             )
 
