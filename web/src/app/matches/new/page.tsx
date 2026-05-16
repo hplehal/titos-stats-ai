@@ -42,9 +42,14 @@ function NewMatchPageInner() {
   const [awayTeamId, setAwayTeamId] = useState("");
   const [playedAt, setPlayedAt] = useState(() => defaultPlayedAt());
   const [tier, setTier] = useState<string>(TIER_UNSET);
+  const [week, setWeek] = useState<string>("");
+  const [court, setCourt] = useState<string>("");
   const [file, setFile] = useState<File | null>(null);
   const [phase, setPhase] = useState<Phase>("idle");
   const [progress, setProgress] = useState(0);
+
+  const weekNum = week.trim() === "" ? NaN : Number(week);
+  const weekValid = Number.isInteger(weekNum) && weekNum >= 1 && weekNum <= 52;
 
   const { data: seasons } = useQuery({
     queryKey: ["seasons"],
@@ -85,6 +90,7 @@ function NewMatchPageInner() {
     awayTeamId &&
     homeTeamId !== awayTeamId &&
     playedAt &&
+    weekValid &&
     file !== null;
 
   async function submit() {
@@ -128,6 +134,8 @@ function NewMatchPageInner() {
           away_team_id: awayTeamId,
           played_at: new Date(playedAt).toISOString(),
           tier: tierNum,
+          week_number: weekNum,
+          court: court.trim() || null,
           video_key: key,
           video_duration: duration,
         },
@@ -277,6 +285,44 @@ function NewMatchPageInner() {
                   ))}
                 </SelectContent>
               </Select>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="week">
+                Week <span className="text-destructive">*</span>
+              </Label>
+              <Input
+                id="week"
+                type="number"
+                min={1}
+                max={52}
+                step={1}
+                inputMode="numeric"
+                value={week}
+                onChange={(e) => setWeek(e.target.value)}
+                placeholder="e.g. 2"
+                aria-invalid={week !== "" && !weekValid}
+              />
+              {week !== "" && !weekValid && (
+                <p className="text-xs text-destructive">Must be 1–52.</p>
+              )}
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="court">Court</Label>
+              <Input
+                id="court"
+                list="court-suggestions"
+                value={court}
+                onChange={(e) => setCourt(e.target.value)}
+                placeholder="Court 1"
+                maxLength={32}
+              />
+              <datalist id="court-suggestions">
+                <option value="Court 1" />
+                <option value="Court 2" />
+              </datalist>
             </div>
           </div>
 
