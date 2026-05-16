@@ -96,11 +96,18 @@ async def test_jersey_out_of_range(client: AsyncClient) -> None:
     )
     team = r.json()
 
-    r = await client.post(
+    # 3-digit jerseys are now valid (rec-league reality); 1000+ is not.
+    ok = await client.post(
         "/players",
-        json={"name": "X", "team_id": team["id"], "jersey_number": 100},
+        json={"name": "Hi", "team_id": team["id"], "jersey_number": 245},
     )
-    assert r.status_code == 422
+    assert ok.status_code == 201, ok.text
+
+    too_big = await client.post(
+        "/players",
+        json={"name": "Way Hi", "team_id": team["id"], "jersey_number": 1000},
+    )
+    assert too_big.status_code == 422
 
 
 async def test_team_under_nonexistent_season_404(client: AsyncClient) -> None:

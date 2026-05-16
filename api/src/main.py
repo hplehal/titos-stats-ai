@@ -37,7 +37,7 @@ _GUARDED_METHODS = frozenset({"POST", "PATCH", "PUT", "DELETE"})
 # included in the response for debuggability.
 _CONSTRAINT_MESSAGES: dict[str, str] = {
     "uq_players_team_jersey": "Jersey number must be unique within a team.",
-    "ck_players_jersey_range": "Jersey number must be between 0 and 99.",
+    "ck_players_jersey_range": "Jersey number must be between 0 and 999.",
     "ck_teams_current_tier_range": "Team tier must be between 1 and 8.",
     "ck_matches_tier_range": "Match tier must be between 1 and 8.",
     "ck_matches_distinct_teams": "Home and away teams must differ.",

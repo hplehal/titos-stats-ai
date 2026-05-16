@@ -9,8 +9,8 @@ from .models import PlayAction, PlayResult
 _NameField = Annotated[str, Field(min_length=1, max_length=120)]
 _NameFieldOpt = Annotated[str | None, Field(default=None, min_length=1, max_length=120)]
 _TierField = Annotated[int | None, Field(default=None, ge=1, le=8)]
-_JerseyField = Annotated[int, Field(ge=0, le=99)]
-_JerseyFieldOpt = Annotated[int | None, Field(default=None, ge=0, le=99)]
+_JerseyField = Annotated[int, Field(ge=0, le=999)]
+_JerseyFieldOpt = Annotated[int | None, Field(default=None, ge=0, le=999)]
 _WeekField = Annotated[int | None, Field(default=None, ge=1, le=52)]
 _CourtField = Annotated[str | None, Field(default=None, min_length=1, max_length=32)]
 

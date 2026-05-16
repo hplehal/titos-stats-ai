@@ -108,7 +108,11 @@ class Player(Base):
             "team_id", "jersey_number", name="uq_players_team_jersey"
         ),
         CheckConstraint(
-            "jersey_number BETWEEN 0 AND 99", name="ck_players_jersey_range"
+            # Rec-league reality: some players run 3-digit jerseys (Robin de
+            # los Santos #245 etc). 999 caps the runaway-typo damage without
+            # boxing out the actual outliers.
+            "jersey_number BETWEEN 0 AND 999",
+            name="ck_players_jersey_range",
         ),
     )
 
